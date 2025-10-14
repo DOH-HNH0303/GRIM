@@ -27,14 +27,21 @@
                 "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.(tsv|txt)$",
                 "errorMessage": "AMRFinder report file must be provided, cannot contain spaces and must have extension '.tsv' or '.txt'"
             },
-            "assembly_fasta": {
+            "phoenix_assembly_fasta": {
                 "type": "string",
                 "format": "file-path",
                 "exists": true,
                 "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.(fasta|fa|fna)(\\.gz)?$",
-                "errorMessage": "Assembly FASTA file must be provided, cannot contain spaces and must have extension '.fasta', '.fa', or '.fna' (optionally gzipped)"
+                "errorMessage": "Phoenix assembly FASTA file must be provided, cannot contain spaces and must have extension '.fasta', '.fa', or '.fna' (optionally gzipped)"
+            },
+            "ont_complete_genome": {
+                "type": "string",
+                "format": "file-path",
+                "exists": true,
+                "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.(fasta|fa|fna)(\\.gz)?$",
+                "errorMessage": "ONT complete genome FASTA file must be provided, cannot contain spaces and must have extension '.fasta', '.fa', or '.fna' (optionally gzipped)"
             }
         },
-        "required": ["sample", "gamma_ar_file", "amrfinder_report", "assembly_fasta"]
+        "required": ["sample", "gamma_ar_file", "amrfinder_report", "phoenix_assembly_fasta", "ont_complete_genome"]
     }
 }

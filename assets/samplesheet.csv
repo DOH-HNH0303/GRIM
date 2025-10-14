@@ -1,3 +1,3 @@
-sample,gamma_ar_file,amrfinder_report,assembly_fasta
-SAMPLE_1,/path/to/phoenix/SAMPLE_1/SAMPLE_1_ResGANNCBI_20230417_srst2.gamma,/path/to/phoenix/SAMPLE_1/SAMPLE_1_amrfinder_report.tsv,/path/to/phoenix/SAMPLE_1/SAMPLE_1_scaffolds.fasta
-SAMPLE_2,/path/to/phoenix/SAMPLE_2/SAMPLE_2_ResGANNCBI_20230417_srst2.gamma,/path/to/phoenix/SAMPLE_2/SAMPLE_2_amrfinder_report.tsv,/path/to/phoenix/SAMPLE_2/SAMPLE_2_scaffolds.fasta
+sample,gamma_ar_file,amrfinder_report,phoenix_assembly_fasta,ont_complete_genome
+SAMPLE_1,/path/to/phoenix/SAMPLE_1/SAMPLE_1_ResGANNCBI_20230417_srst2.gamma,/path/to/phoenix/SAMPLE_1/SAMPLE_1_amrfinder_report.tsv,/path/to/phoenix/SAMPLE_1/SAMPLE_1_scaffolds.fasta,/path/to/ont/SAMPLE_1/SAMPLE_1_complete_genome.fasta
+SAMPLE_2,/path/to/phoenix/SAMPLE_2/SAMPLE_2_ResGANNCBI_20230417_srst2.gamma,/path/to/phoenix/SAMPLE_2/SAMPLE_2_amrfinder_report.tsv,/path/to/phoenix/SAMPLE_2/SAMPLE_2_scaffolds.fasta,/path/to/ont/SAMPLE_2/SAMPLE_2_complete_genome.fasta

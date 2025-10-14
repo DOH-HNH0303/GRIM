@@ -20,7 +20,7 @@
 
 ## Introduction
 
-**nf-core/grim** (Genomic Resistance Identification and Mapping) is a bioinformatics pipeline that maps Phoenix AMR genes onto complete genomes to determine chromosomal vs plasmid location. It leverages existing Phoenix output files (GAMMA and AMRFinder results) to efficiently classify antimicrobial resistance gene locations without redundant processing.
+**nf-core/grim** (Genomic Resistance Identification and Mapping) is a bioinformatics pipeline that maps Phoenix AMR genes onto ONT complete genomes to determine chromosomal vs plasmid location. It leverages existing Phoenix output files (GAMMA and AMRFinder results) and maps the identified AMR genes from Phoenix assemblies (derived from Illumina data) onto high-quality ONT complete genomes to provide accurate chromosomal vs plasmid classification.
 
 <!-- TODO nf-core:
    Complete this sentence with a 2-3 sentence summary of what types of data the pipeline ingests, a brief overview of the
@@ -31,9 +31,11 @@
 <!-- TODO nf-core: Include a figure that guides the user through the major workflow steps. Many nf-core
      workflows use the "tube map" design for that. See https://nf-co.re/docs/guidelines/graphic_design/workflow_diagrams#examples for examples.   -->
 <!-- TODO nf-core: Fill in short bullet-pointed list of the default steps in the pipeline -->1. Parse Phoenix AMR output files (GAMMA and AMRFinder results)
-2. Classify AMR gene locations (chromosomal vs plasmid)
-3. Generate comprehensive AMR location reports
-4. Present QC and results summary ([`MultiQC`](http://multiqc.info/))
+2. Extract AMR gene sequences from Phoenix assemblies (Illumina-derived)
+3. Map AMR gene sequences to ONT complete genomes using BLAST
+4. Classify AMR gene locations on ONT genomes (chromosomal vs plasmid)
+5. Generate comprehensive AMR location mapping reports
+6. Present QC and results summary ([`MultiQC`](http://multiqc.info/))
 
 ## Usage
 

@@ -3,27 +3,33 @@
 import argparse
 import pandas as pd
 import sys
+import os
+import subprocess
 from pathlib import Path
 from Bio import SeqIO
+from Bio.Blast import NCBIXML
+from Bio.Blast.Applications import NcbiblastnCommandline
+import tempfile
 import re
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Locate AMR genes using existing Phoenix output files')
+    parser = argparse.ArgumentParser(description='Map Phoenix AMR genes onto ONT complete genomes')
     parser.add_argument('--sample_id', required=True, help='Sample ID')
     parser.add_argument('--gamma_ar', required=True, help='GAMMA AR output file (.gamma)')
     parser.add_argument('--amrfinder_report', required=False, help='AMRFinder report file')
-    parser.add_argument('--assembly', required=True, help='Assembly FASTA file')
+    parser.add_argument('--phoenix_assembly', required=True, help='Phoenix assembly FASTA file')
+    parser.add_argument('--ont_genome', required=True, help='ONT complete genome FASTA file')
     parser.add_argument('--output_locations', required=True, help='Output gene locations TSV')
     parser.add_argument('--output_detailed', required=True, help='Output detailed AMR TSV')
     return parser.parse_args()
 
-def classify_contig(contig_name, contig_length):
-    """Classify contig as chromosome or plasmid based on naming and size"""
+def classify_ont_contig(contig_name, contig_length):
+    """Classify ONT contig as chromosome or plasmid based on naming and size"""
     contig_name_lower = contig_name.lower()
     
     # Common plasmid indicators in contig names
-    plasmid_indicators = ['plasmid', 'plas', 'p1', 'p2', 'p3', 'p4', 'p5']
-    chromosome_indicators = ['chromosome', 'chr', 'chrom']
+    plasmid_indicators = ['plasmid', 'plas', 'p1', 'p2', 'p3', 'p4', 'p5', 'unnamed']
+    chromosome_indicators = ['chromosome', 'chr', 'chrom', 'complete', 'genome']
     
     # Check name-based classification first
     for indicator in plasmid_indicators:
@@ -34,10 +40,10 @@ def classify_contig(contig_name, contig_length):
         if indicator in contig_name_lower:
             return 'chromosome', contig_name
     
-    # Size-based heuristic (adjust thresholds as needed)
-    if contig_length > 1000000:  # > 1 Mb likely chromosome
+    # Size-based heuristic for complete genomes (adjust thresholds as needed)
+    if contig_length > 2000000:  # > 2 Mb likely chromosome
         return 'chromosome', contig_name
-    elif contig_length < 500000:  # < 500 kb likely plasmid
+    elif contig_length < 1000000:  # < 1 Mb likely plasmid
         return 'plasmid', contig_name
     else:
         return 'unknown', contig_name
@@ -70,9 +76,9 @@ def parse_gamma_ar_file(gamma_file):
                     accession = 'Unknown'
                 
                 # Extract relevant information
-                contig = fields[1] if len(fields) > 1 else 'Unknown'
-                start_pos = fields[2] if len(fields) > 2 else 'Unknown'
-                end_pos = fields[3] if len(fields) > 3 else 'Unknown'
+                phoenix_contig = fields[1] if len(fields) > 1 else 'Unknown'
+                start_pos = int(fields[2]) if len(fields) > 2 and fields[2].isdigit() else 0
+                end_pos = int(fields[3]) if len(fields) > 3 and fields[3].isdigit() else 0
                 
                 # Quality metrics from GAMMA
                 percent_identity = float(fields[9]) * 100 if len(fields) > 9 and fields[9] != '' else 0
@@ -83,9 +89,9 @@ def parse_gamma_ar_file(gamma_file):
                     genes.append({
                         'gene_name': gene_name,
                         'gene_id': fields[0],
-                        'contig': contig,
-                        'start_pos': start_pos,
-                        'end_pos': end_pos,
+                        'phoenix_contig': phoenix_contig,
+                        'phoenix_start_pos': start_pos,
+                        'phoenix_end_pos': end_pos,
                         'category': category,
                         'database': database,
                         'accession': accession,
@@ -117,9 +123,9 @@ def parse_amrfinder_report(amrfinder_file):
                     continue
                 
                 # AMRFinder format: Protein identifier, Contig id, Start, Stop, Strand, Gene symbol, ...
-                contig = fields[1] if len(fields) > 1 else 'Unknown'
-                start_pos = fields[2] if len(fields) > 2 else 'Unknown'
-                end_pos = fields[3] if len(fields) > 3 else 'Unknown'
+                phoenix_contig = fields[1] if len(fields) > 1 else 'Unknown'
+                start_pos = int(fields[2]) if len(fields) > 2 and fields[2].isdigit() else 0
+                end_pos = int(fields[3]) if len(fields) > 3 and fields[3].isdigit() else 0
                 gene_symbol = fields[5] if len(fields) > 5 else 'Unknown'
                 
                 # Check if it's a point mutation
@@ -127,9 +133,9 @@ def parse_amrfinder_report(amrfinder_file):
                 
                 amr_data.append({
                     'gene_symbol': gene_symbol,
-                    'contig': contig,
-                    'start_pos': start_pos,
-                    'end_pos': end_pos,
+                    'phoenix_contig': phoenix_contig,
+                    'phoenix_start_pos': start_pos,
+                    'phoenix_end_pos': end_pos,
                     'is_point_mutation': is_point_mutation,
                     'full_line': line.strip()
                 })
@@ -148,7 +154,8 @@ def get_contig_info(assembly_file):
         for record in SeqIO.parse(assembly_file, "fasta"):
             contig_info[record.id] = {
                 'length': len(record.seq),
-                'description': record.description
+                'description': record.description,
+                'sequence': str(record.seq)
             }
     except Exception as e:
         print(f"Error reading assembly file {assembly_file}: {e}", file=sys.stderr)
@@ -156,46 +163,230 @@ def get_contig_info(assembly_file):
     
     return contig_info
 
+def extract_gene_sequence(phoenix_contigs, contig_name, start_pos, end_pos):
+    """Extract gene sequence from Phoenix assembly"""
+    if contig_name not in phoenix_contigs:
+        return None
+    
+    contig_seq = phoenix_contigs[contig_name]['sequence']
+    
+    # Ensure coordinates are within bounds
+    start_pos = max(0, start_pos - 1)  # Convert to 0-based indexing
+    end_pos = min(len(contig_seq), end_pos)
+    
+    if start_pos >= end_pos:
+        return None
+    
+    return contig_seq[start_pos:end_pos]
+
+def run_blast_search(query_seq, ont_genome_file, temp_dir):
+    """Run BLAST search to find gene location in ONT genome"""
+    
+    # Create temporary query file
+    query_file = os.path.join(temp_dir, "query.fasta")
+    with open(query_file, 'w') as f:
+        f.write(f">query\n{query_seq}\n")
+    
+    # Create BLAST database
+    db_file = os.path.join(temp_dir, "ont_db")
+    makeblastdb_cmd = f"makeblastdb -in {ont_genome_file} -dbtype nucl -out {db_file}"
+    subprocess.run(makeblastdb_cmd, shell=True, capture_output=True)
+    
+    # Run BLAST search
+    blast_output = os.path.join(temp_dir, "blast_results.xml")
+    blastn_cmd = f"blastn -query {query_file} -db {db_file} -out {blast_output} -outfmt 5 -evalue 1e-10"
+    result = subprocess.run(blastn_cmd, shell=True, capture_output=True)
+    
+    if result.returncode != 0:
+        return None
+    
+    # Parse BLAST results
+    try:
+        with open(blast_output, 'r') as f:
+            blast_records = NCBIXML.parse(f)
+            for blast_record in blast_records:
+                if blast_record.alignments:
+                    # Get best hit
+                    alignment = blast_record.alignments[0]
+                    hsp = alignment.hsps[0]
+                    
+                    return {
+                        'ont_contig': alignment.title.split()[0].replace('>', ''),
+                        'ont_start': hsp.sbjct_start,
+                        'ont_end': hsp.sbjct_end,
+                        'identity': hsp.identities / hsp.align_length * 100,
+                        'coverage': hsp.align_length / blast_record.query_length * 100,
+                        'evalue': hsp.expect
+                    }
+    except Exception as e:
+        print(f"Error parsing BLAST results: {e}", file=sys.stderr)
+        return None
+    
+    return None
+
+def map_amr_genes_to_ont(gamma_genes, amrfinder_data, phoenix_contigs, ont_contigs, ont_genome_file):
+    """Map AMR genes from Phoenix assembly to ONT complete genome"""
+    mapped_genes = []
+    
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # Process GAMMA genes
+        for gene in gamma_genes:
+            print(f"Processing gene: {gene['gene_name']}")
+            
+            # Extract gene sequence from Phoenix assembly
+            gene_seq = extract_gene_sequence(
+                phoenix_contigs, 
+                gene['phoenix_contig'], 
+                gene['phoenix_start_pos'], 
+                gene['phoenix_end_pos']
+            )
+            
+            if not gene_seq:
+                print(f"Could not extract sequence for gene {gene['gene_name']}")
+                continue
+            
+            # BLAST against ONT genome
+            blast_result = run_blast_search(gene_seq, ont_genome_file, temp_dir)
+            
+            if blast_result and blast_result['identity'] >= 95 and blast_result['coverage'] >= 90:
+                # Get ONT contig info
+                ont_contig_name = blast_result['ont_contig']
+                ont_contig_length = ont_contigs.get(ont_contig_name, {}).get('length', 'unknown')
+                
+                # Classify location on ONT genome
+                location_type, location_name = classify_ont_contig(ont_contig_name, ont_contig_length if ont_contig_length != 'unknown' else 0)
+                
+                mapped_gene = gene.copy()
+                mapped_gene.update({
+                    'ont_contig': ont_contig_name,
+                    'ont_start_pos': blast_result['ont_start'],
+                    'ont_end_pos': blast_result['ont_end'],
+                    'ont_contig_length': ont_contig_length,
+                    'location_type': location_type,
+                    'blast_identity': round(blast_result['identity'], 2),
+                    'blast_coverage': round(blast_result['coverage'], 2),
+                    'blast_evalue': blast_result['evalue'],
+                    'mapping_status': 'mapped'
+                })
+                mapped_genes.append(mapped_gene)
+            else:
+                # Gene not found in ONT genome
+                mapped_gene = gene.copy()
+                mapped_gene.update({
+                    'ont_contig': 'Not found',
+                    'ont_start_pos': 'N/A',
+                    'ont_end_pos': 'N/A',
+                    'ont_contig_length': 'N/A',
+                    'location_type': 'not_found',
+                    'blast_identity': blast_result['identity'] if blast_result else 0,
+                    'blast_coverage': blast_result['coverage'] if blast_result else 0,
+                    'blast_evalue': blast_result['evalue'] if blast_result else 'N/A',
+                    'mapping_status': 'not_mapped'
+                })
+                mapped_genes.append(mapped_gene)
+        
+        # Process AMRFinder data similarly
+        for amr_entry in amrfinder_data:
+            # Check if this gene is already in GAMMA results
+            gene_in_gamma = any(g['phoenix_contig'] == amr_entry['phoenix_contig'] and 
+                               g['gene_name'].lower() == amr_entry['gene_symbol'].lower() 
+                               for g in gamma_genes)
+            
+            if not gene_in_gamma:
+                print(f"Processing AMRFinder gene: {amr_entry['gene_symbol']}")
+                
+                # Extract gene sequence from Phoenix assembly
+                gene_seq = extract_gene_sequence(
+                    phoenix_contigs, 
+                    amr_entry['phoenix_contig'], 
+                    amr_entry['phoenix_start_pos'], 
+                    amr_entry['phoenix_end_pos']
+                )
+                
+                if not gene_seq:
+                    continue
+                
+                # BLAST against ONT genome
+                blast_result = run_blast_search(gene_seq, ont_genome_file, temp_dir)
+                
+                if blast_result and blast_result['identity'] >= 95 and blast_result['coverage'] >= 90:
+                    # Get ONT contig info
+                    ont_contig_name = blast_result['ont_contig']
+                    ont_contig_length = ont_contigs.get(ont_contig_name, {}).get('length', 'unknown')
+                    
+                    # Classify location on ONT genome
+                    location_type, location_name = classify_ont_contig(ont_contig_name, ont_contig_length if ont_contig_length != 'unknown' else 0)
+                    
+                    mapped_gene = {
+                        'gene_name': amr_entry['gene_symbol'],
+                        'gene_id': f"AMRFinder_{amr_entry['gene_symbol']}",
+                        'phoenix_contig': amr_entry['phoenix_contig'],
+                        'phoenix_start_pos': amr_entry['phoenix_start_pos'],
+                        'phoenix_end_pos': amr_entry['phoenix_end_pos'],
+                        'ont_contig': ont_contig_name,
+                        'ont_start_pos': blast_result['ont_start'],
+                        'ont_end_pos': blast_result['ont_end'],
+                        'ont_contig_length': ont_contig_length,
+                        'location_type': location_type,
+                        'blast_identity': round(blast_result['identity'], 2),
+                        'blast_coverage': round(blast_result['coverage'], 2),
+                        'blast_evalue': blast_result['evalue'],
+                        'mapping_status': 'mapped',
+                        'category': 'AMRFinder',
+                        'database': 'AMRFinder',
+                        'accession': 'N/A',
+                        'percent_identity': 'N/A',
+                        'percent_length': 'N/A',
+                        'is_beta_lactam': 'Unknown',
+                        'is_point_mutation': amr_entry['is_point_mutation']
+                    }
+                    mapped_genes.append(mapped_gene)
+    
+    return mapped_genes
+
 def main():
     args = parse_args()
     
     print(f"Processing sample: {args.sample_id}")
+    print(f"Mapping Phoenix AMR results to ONT complete genome")
     
     # Parse input files
     gamma_genes = parse_gamma_ar_file(args.gamma_ar)
     amrfinder_data = parse_amrfinder_report(args.amrfinder_report) if args.amrfinder_report else []
-    contig_info = get_contig_info(args.assembly)
+    phoenix_contigs = get_contig_info(args.phoenix_assembly)
+    ont_contigs = get_contig_info(args.ont_genome)
     
     print(f"Found {len(gamma_genes)} genes from GAMMA")
     print(f"Found {len(amrfinder_data)} entries from AMRFinder")
-    print(f"Found {len(contig_info)} contigs in assembly")
+    print(f"Found {len(phoenix_contigs)} contigs in Phoenix assembly")
+    print(f"Found {len(ont_contigs)} contigs in ONT genome")
     
-    # Process gene locations
+    # Map AMR genes to ONT genome
+    mapped_genes = map_amr_genes_to_ont(gamma_genes, amrfinder_data, phoenix_contigs, ont_contigs, args.ont_genome)
+    
+    # Prepare results
     results = []
     detailed_results = []
     
-    # Process GAMMA genes (primary source)
-    for gene in gamma_genes:
-        contig_name = gene['contig']
-        contig_length = contig_info.get(contig_name, {}).get('length', 'unknown')
-        
-        # Classify location
-        location_type, location_name = classify_contig(contig_name, contig_length if contig_length != 'unknown' else 0)
-        
+    for gene in mapped_genes:
         # Create result entry
         result = {
             'sample_id': args.sample_id,
             'gene_name': gene['gene_name'],
             'gene_id': gene['gene_id'],
-            'location_type': location_type,
-            'contig_name': contig_name,
-            'contig_length': contig_length,
-            'start_position': gene['start_pos'],
-            'end_position': gene['end_pos'],
-            'percent_identity': gene['percent_identity'],
-            'percent_length': gene['percent_length'],
-            'is_beta_lactam': gene['is_beta_lactam'],
-            'source': 'GAMMA'
+            'location_type': gene['location_type'],
+            'ont_contig_name': gene['ont_contig'],
+            'ont_contig_length': gene['ont_contig_length'],
+            'ont_start_position': gene['ont_start_pos'],
+            'ont_end_position': gene['ont_end_pos'],
+            'phoenix_contig_name': gene['phoenix_contig'],
+            'phoenix_start_position': gene['phoenix_start_pos'],
+            'phoenix_end_position': gene['phoenix_end_pos'],
+            'blast_identity': gene.get('blast_identity', 'N/A'),
+            'blast_coverage': gene.get('blast_coverage', 'N/A'),
+            'mapping_status': gene['mapping_status'],
+            'is_beta_lactam': gene.get('is_beta_lactam', 'Unknown'),
+            'source': 'GAMMA' if 'AMRFinder' not in gene['gene_id'] else 'AMRFinder'
         }
         
         results.append(result)
@@ -203,50 +394,14 @@ def main():
         # Add to detailed results
         detailed_result = result.copy()
         detailed_result.update({
-            'category': gene['category'],
-            'database': gene['database'],
-            'accession': gene['accession']
+            'category': gene.get('category', 'Unknown'),
+            'database': gene.get('database', 'Unknown'),
+            'accession': gene.get('accession', 'Unknown'),
+            'phoenix_percent_identity': gene.get('percent_identity', 'N/A'),
+            'phoenix_percent_length': gene.get('percent_length', 'N/A'),
+            'blast_evalue': gene.get('blast_evalue', 'N/A')
         })
         detailed_results.append(detailed_result)
-    
-    # Process AMRFinder data for additional context
-    for amr_entry in amrfinder_data:
-        contig_name = amr_entry['contig']
-        contig_length = contig_info.get(contig_name, {}).get('length', 'unknown')
-        location_type, location_name = classify_contig(contig_name, contig_length if contig_length != 'unknown' else 0)
-        
-        # Check if this gene is already in GAMMA results
-        gene_in_gamma = any(g['contig'] == contig_name and 
-                           g['gene_name'].lower() == amr_entry['gene_symbol'].lower() 
-                           for g in gamma_genes)
-        
-        if not gene_in_gamma:
-            # Add AMRFinder-only genes
-            result = {
-                'sample_id': args.sample_id,
-                'gene_name': amr_entry['gene_symbol'],
-                'gene_id': f"AMRFinder_{amr_entry['gene_symbol']}",
-                'location_type': location_type,
-                'contig_name': contig_name,
-                'contig_length': contig_length,
-                'start_position': amr_entry['start_pos'],
-                'end_position': amr_entry['end_pos'],
-                'percent_identity': 'N/A',
-                'percent_length': 'N/A',
-                'is_beta_lactam': 'Unknown',
-                'source': 'AMRFinder'
-            }
-            
-            results.append(result)
-            
-            detailed_result = result.copy()
-            detailed_result.update({
-                'category': 'AMRFinder',
-                'database': 'AMRFinder',
-                'accession': 'N/A',
-                'is_point_mutation': amr_entry['is_point_mutation']
-            })
-            detailed_results.append(detailed_result)
     
     # Save results
     results_df = pd.DataFrame(results)
@@ -256,18 +411,22 @@ def main():
     detailed_df.to_csv(args.output_detailed, sep='\t', index=False)
     
     # Print summary
-    print(f"Results for sample {args.sample_id}:")
-    print(f"  Total AMR genes found: {len(results)}")
+    print(f"\nResults for sample {args.sample_id}:")
+    print(f"  Total AMR genes processed: {len(mapped_genes)}")
     
     if results:
-        location_counts = results_df['location_type'].value_counts()
+        mapped_count = sum(1 for r in results if r['mapping_status'] == 'mapped')
+        print(f"  Successfully mapped to ONT genome: {mapped_count}")
+        print(f"  Not found in ONT genome: {len(results) - mapped_count}")
+        
+        location_counts = results_df[results_df['mapping_status'] == 'mapped']['location_type'].value_counts()
         for location, count in location_counts.items():
             print(f"  {location}: {count}")
         
-        beta_lactam_count = sum(1 for r in results if r.get('is_beta_lactam', False))
-        print(f"  Beta-lactam genes: {beta_lactam_count}")
+        beta_lactam_count = sum(1 for r in results if r.get('is_beta_lactam', False) and r['mapping_status'] == 'mapped')
+        print(f"  Beta-lactam genes mapped: {beta_lactam_count}")
         
-        source_counts = results_df['source'].value_counts()
+        source_counts = results_df[results_df['mapping_status'] == 'mapped']['source'].value_counts()
         for source, count in source_counts.items():
             print(f"  From {source}: {count}")
 

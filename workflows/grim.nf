@@ -26,11 +26,11 @@ workflow GRIM {
     ch_multiqc_files = Channel.empty()
 
     //
-    // Parse samplesheet to get Phoenix output files
-    // Expected format: sample,gamma_ar_file,amrfinder_report,assembly_fasta
+    // Parse samplesheet to get Phoenix output files and ONT complete genomes
+    // Expected format: sample,gamma_ar_file,amrfinder_report,phoenix_assembly_fasta,ont_complete_genome
     //
-    ch_phoenix_files = ch_samplesheet.map { meta, gamma_ar, amrfinder, assembly ->
-        [meta, gamma_ar, amrfinder, assembly]
+    ch_phoenix_files = ch_samplesheet.map { meta, gamma_ar, amrfinder, phoenix_assembly, ont_genome ->
+        [meta, gamma_ar, amrfinder, phoenix_assembly, ont_genome]
     }
 
     //

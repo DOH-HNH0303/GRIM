@@ -26,7 +26,7 @@ include { getGenomeAttribute      } from './subworkflows/local/utils_nfcore_grim
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-// Phoenix AMR Locator doesn't need genome references as it uses Phoenix output files directly
+// Phoenix AMR Locator maps Phoenix AMR results onto ONT complete genomes for accurate location classification
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
