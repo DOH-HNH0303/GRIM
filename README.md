@@ -42,21 +42,45 @@
 > [!NOTE]
 > If you are new to Nextflow and nf-core, please refer to [this page](https://nf-co.re/docs/usage/installation) on how to set-up Nextflow. Make sure to [test your setup](https://nf-co.re/docs/usage/introduction#how-to-run-a-pipeline) with `-profile test` before running the workflow on actual data.
 
-<!-- TODO nf-core: Describe the minimum required steps to execute the pipeline, e.g. how to prepare samplesheets.
-     Explain what rows and columns represent. For instance (please edit as appropriate):
+### Samplesheet Input
 
-First, prepare a samplesheet with your input data that looks as follows:
+The pipeline supports two input formats for maximum flexibility:
+
+#### Format 1: Individual File Paths
+
+Specify individual paths to each Phoenix output file:
 
 `samplesheet.csv`:
 
 ```csv
-sample,fastq_1,fastq_2
-CONTROL_REP1,AEG588A1_S1_L002_R1_001.fastq.gz,AEG588A1_S1_L002_R2_001.fastq.gz
+sample,gamma_ar_file,amrfinder_report,phoenix_assembly_fasta,ont_complete_genome
+SAMPLE_1,/path/to/phoenix/SAMPLE_1/SAMPLE_1_ResGANNCBI_20230417_srst2.gamma,/path/to/phoenix/SAMPLE_1/SAMPLE_1_amrfinder_report.tsv,/path/to/phoenix/SAMPLE_1/SAMPLE_1_scaffolds.fasta,/path/to/ont/SAMPLE_1/SAMPLE_1_complete_genome.fasta
+SAMPLE_2,/path/to/phoenix/SAMPLE_2/SAMPLE_2_ResGANNCBI_20230417_srst2.gamma,/path/to/phoenix/SAMPLE_2/SAMPLE_2_amrfinder_report.tsv,/path/to/phoenix/SAMPLE_2/SAMPLE_2_scaffolds.fasta,/path/to/ont/SAMPLE_2/SAMPLE_2_complete_genome.fasta
 ```
 
-Each row represents a fastq file (single-end) or a pair of fastq files (paired end).
+#### Format 2: Phoenix Output Directory (Recommended)
 
--->
+Specify the Phoenix output directory and let GRIM automatically find the required files:
+
+`samplesheet.csv`:
+
+```csv
+sample,phoenix_outdir,ont_complete_genome
+SAMPLE_1,/path/to/phoenix/output/SAMPLE_1,/path/to/ont/SAMPLE_1/SAMPLE_1_complete_genome.fasta
+SAMPLE_2,/path/to/phoenix/output/SAMPLE_2,/path/to/ont/SAMPLE_2/SAMPLE_2_complete_genome.fasta
+```
+
+> [!TIP]
+> Format 2 is recommended as it's simpler and automatically handles Phoenix file naming conventions. The `phoenix_outdir` should be the directory that was specified as `--outdir` when running Phoenix.
+
+### Column Descriptions
+
+- **`sample`**: Unique sample identifier (no spaces allowed)
+- **`phoenix_outdir`**: Path to Phoenix output directory for this sample
+- **`gamma_ar_file`**: Path to Phoenix GAMMA antimicrobial resistance file (`.gamma`)
+- **`amrfinder_report`**: Path to Phoenix AMRFinder report (`.tsv` or `.txt`)
+- **`phoenix_assembly_fasta`**: Path to Phoenix assembly file (`.fasta`, `.fa`, or `.fna`)
+- **`ont_complete_genome`**: Path to ONT complete genome file (`.fasta`, `.fa`, or `.fna`, optionally gzipped)
 
 Now, you can run the pipeline using:
 

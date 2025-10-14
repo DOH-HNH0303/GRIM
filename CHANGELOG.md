@@ -5,6 +5,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## v1.0.0dev - [date]
 
+Initial release of nf-core/amrlocator, created with the [nf-core](https://nf-co.re/) template.
+
 ### `Added`
 
 ### `Fixed`

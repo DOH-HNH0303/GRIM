@@ -1,0 +1,3 @@
+sample,gamma_ar_file,amrfinder_report,phoenix_assembly_fasta,ont_complete_genome
+ECOLI_001,/data/phoenix/ECOLI_001/ECOLI_001_ResGANNCBI_20230417_srst2.gamma,/data/phoenix/ECOLI_001/ECOLI_001_amrfinder_report.tsv,/data/phoenix/ECOLI_001/ECOLI_001_scaffolds.fasta,/data/ont/ECOLI_001/ECOLI_001_complete_genome.fasta
+KPNEU_002,/data/phoenix/KPNEU_002/KPNEU_002_ResGANNCBI_20230417_srst2.gamma,/data/phoenix/KPNEU_002/KPNEU_002_amrfinder_report.tsv,/data/phoenix/KPNEU_002/KPNEU_002_scaffolds.fasta,/data/ont/KPNEU_002/KPNEU_002_complete_genome.fasta

@@ -4,6 +4,7 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 include { PHOENIX_AMR_LOCATOR } from '../modules/local/phoenix_amr_locator'
+include { RESOLVE_PHOENIX_FILES } from '../modules/local/resolve_phoenix_files'
 include { MULTIQC             } from '../modules/nf-core/multiqc/main'
 include { paramsSummaryMap    } from 'plugin/nf-schema'
 include { paramsSummaryMultiqc} from '../subworkflows/nf-core/utils_nfcore_pipeline'
@@ -26,12 +27,34 @@ workflow GRIM {
     ch_multiqc_files = Channel.empty()
 
     //
-    // Parse samplesheet to get Phoenix output files and ONT complete genomes
-    // Expected format: sample,gamma_ar_file,amrfinder_report,phoenix_assembly_fasta,ont_complete_genome
+    // Parse samplesheet and separate into two formats
+    // Format 1: sample,gamma_ar_file,amrfinder_report,phoenix_assembly_fasta,ont_complete_genome
+    // Format 2: sample,phoenix_outdir,ont_complete_genome
     //
-    ch_phoenix_files = ch_samplesheet.map { meta, gamma_ar, amrfinder, phoenix_assembly, ont_genome ->
-        [meta, gamma_ar, amrfinder, phoenix_assembly, ont_genome]
-    }
+    ch_samplesheet
+        .branch { row ->
+            individual_files: row.size() == 5
+                return [row[0], row[1], row[2], row[3], row[4]]
+            phoenix_outdir: row.size() == 3
+                return [row[0], row[1], row[2]]
+            invalid: true
+                error "Invalid samplesheet format. Expected either 5 columns (individual files) or 3 columns (phoenix_outdir format)"
+        }
+        .set { ch_input_formats }
+
+    //
+    // For phoenix_outdir format, resolve file paths
+    //
+    RESOLVE_PHOENIX_FILES (
+        ch_input_formats.phoenix_outdir
+    )
+    ch_versions = ch_versions.mix(RESOLVE_PHOENIX_FILES.out.versions)
+
+    //
+    // Combine both input formats into a single channel
+    //
+    ch_phoenix_files = ch_input_formats.individual_files
+        .mix(RESOLVE_PHOENIX_FILES.out.resolved_files)
 
     //
     // MODULE: Process each sample using existing Phoenix AMR indexing files
