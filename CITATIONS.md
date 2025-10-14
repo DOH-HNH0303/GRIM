@@ -1,4 +1,4 @@
-# DOH-HNH0303/grim: Citations
+# nf-core/grim: Citations
 
 ## [nf-core](https://pubmed.ncbi.nlm.nih.gov/32055031/)
 
@@ -10,9 +10,17 @@
 
 ## Pipeline tools
 
-- [FastQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/)
+- [GAMMA](https://github.com/rastanton/GAMMA)
 
-> Andrews, S. (2010). FastQC: A Quality Control Tool for High Throughput Sequence Data [Online].
+> Rastanton, R. GAMMA: Gene Allele Mutation and Antibiotic resistance detection tool.
+
+- [AMRFinderPlus](https://pubmed.ncbi.nlm.nih.gov/33119707/)
+
+> Feldgarden M, Brover V, Gonzalez-Escalona N, Frye JG, Haendiges J, Haft DH, Hoffmann M, Pettengill JB, Prasad AB, Tillman GE, Tyson GH, Klimke W. AMRFinderPlus and the Reference Gene Catalog facilitate examination of the genomic links among antimicrobial resistance, stress response, and virulence. Sci Rep. 2021 Jun 16;11(1):12728. doi: 10.1038/s41598-021-91456-0. PubMed PMID: 34135355; PubMed Central PMCID: PMC8208984.
+
+- [BioPython](https://pubmed.ncbi.nlm.nih.gov/19304878/)
+
+> Cock PJ, Antao T, Chang JT, Chapman BA, Cox CJ, Dalke A, Friedberg I, Hamelryck T, Kauff F, Wilczynski B, de Hoon MJ. Biopython: freely available Python tools for computational molecular biology and bioinformatics. Bioinformatics. 2009 Jun 1;25(11):1422-3. doi: 10.1093/bioinformatics/btp163. Epub 2009 Mar 20. PubMed PMID: 19304878; PubMed Central PMCID: PMC2682512.
 
 - [MultiQC](https://pubmed.ncbi.nlm.nih.gov/27312411/)
 

@@ -3,16 +3,16 @@
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-include { FASTQC                 } from '../modules/nf-core/fastqc/main'
-include { MULTIQC                } from '../modules/nf-core/multiqc/main'
-include { paramsSummaryMap       } from 'plugin/nf-schema'
-include { paramsSummaryMultiqc   } from '../subworkflows/nf-core/utils_nfcore_pipeline'
+include { PHOENIX_AMR_LOCATOR } from '../modules/local/phoenix_amr_locator'
+include { MULTIQC             } from '../modules/nf-core/multiqc/main'
+include { paramsSummaryMap    } from 'plugin/nf-schema'
+include { paramsSummaryMultiqc} from '../subworkflows/nf-core/utils_nfcore_pipeline'
 include { softwareVersionsToYAML } from '../subworkflows/nf-core/utils_nfcore_pipeline'
 include { methodsDescriptionText } from '../subworkflows/local/utils_nfcore_grim_pipeline'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    RUN MAIN WORKFLOW
+    RUN MAIN WORKFLOW - PHOENIX-OPTIMIZED VERSION
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
@@ -24,14 +24,30 @@ workflow GRIM {
 
     ch_versions = Channel.empty()
     ch_multiqc_files = Channel.empty()
+
     //
-    // MODULE: Run FastQC
+    // Parse samplesheet to get Phoenix output files
+    // Expected format: sample,gamma_ar_file,amrfinder_report,assembly_fasta
     //
-    FASTQC (
-        ch_samplesheet
+    ch_phoenix_files = ch_samplesheet.map { meta, gamma_ar, amrfinder, assembly ->
+        [meta, gamma_ar, amrfinder, assembly]
+    }
+
+    //
+    // MODULE: Process each sample using existing Phoenix AMR indexing files
+    // This leverages the pre-computed GAMMA and AMRFinder results
+    // No need to re-parse Phoenix summary files or re-run BLAST!
+    //
+    PHOENIX_AMR_LOCATOR (
+        ch_phoenix_files
     )
-    ch_multiqc_files = ch_multiqc_files.mix(FASTQC.out.zip.collect{it[1]})
-    ch_versions = ch_versions.mix(FASTQC.out.versions.first())
+    ch_versions = ch_versions.mix(PHOENIX_AMR_LOCATOR.out.versions.first())
+
+    //
+    // Collect results for MultiQC
+    //
+    ch_multiqc_files = ch_multiqc_files.mix(PHOENIX_AMR_LOCATOR.out.locations.collect{it[1]})
+    ch_multiqc_files = ch_multiqc_files.mix(PHOENIX_AMR_LOCATOR.out.detailed_amr.collect{it[1]})
 
     //
     // Collate and save software versions
@@ -39,11 +55,10 @@ workflow GRIM {
     softwareVersionsToYAML(ch_versions)
         .collectFile(
             storeDir: "${params.outdir}/pipeline_info",
-            name:  'grim_software_'  + 'mqc_'  + 'versions.yml',
+            name: 'nf_core_'  +  'grim_software_'  + 'mqc_'  + 'versions.yml',
             sort: true,
             newLine: true
         ).set { ch_collated_versions }
-
 
     //
     // MODULE: MultiQC
@@ -85,8 +100,11 @@ workflow GRIM {
         []
     )
 
-    emit:multiqc_report = MULTIQC.out.report.toList() // channel: /path/to/multiqc_report.html
-    versions       = ch_versions                 // channel: [ path(versions.yml) ]
+    emit:
+    gene_locations = PHOENIX_AMR_LOCATOR.out.locations    // channel: [ meta, gene_locations.tsv ]
+    detailed_amr   = PHOENIX_AMR_LOCATOR.out.detailed_amr // channel: [ meta, detailed_amr.tsv ]
+    multiqc_report = MULTIQC.out.report.toList()         // channel: /path/to/multiqc_report.html
+    versions       = ch_versions                          // channel: [ path(versions.yml) ]
 
 }
 

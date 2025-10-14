@@ -1,8 +1,8 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://raw.githubusercontent.com/DOH-HNH0303/grim/master/nextflow_schema.json",
-    "title": "DOH-HNH0303/grim pipeline parameters",
-    "description": "GRIM (gene Result Index Mapping) maps indexed genes determined from Illumina sequences onto complete genomes",
+    "$id": "https://raw.githubusercontent.com/nf-core/amrlocator/master/nextflow_schema.json",
+    "title": "nf-core/amrlocator pipeline parameters",
+    "description": "Optimized pipeline to map Phoenix AMR genes onto complete genomes with Phoenix file integration",
     "type": "object",
     "$defs": {
         "input_output_options": {
@@ -20,7 +20,7 @@
                     "mimetype": "text/csv",
                     "pattern": "^\\S+\\.csv$",
                     "description": "Path to comma-separated file containing information about the samples in the experiment.",
-                    "help_text": "You will need to create a design file with information about the samples in your experiment before running the pipeline. Use this parameter to specify its location. It has to be a comma-separated file with 3 columns, and a header row.",
+                    "help_text": "You will need to create a design file with information about the samples in your experiment before running the pipeline. Use this parameter to specify its location. It has to be a comma-separated file with 3 columns, and a header row. See [usage docs](https://nf-co.re/amrlocator/usage#samplesheet-input).",
                     "fa_icon": "fas fa-file-csv"
                 },
                 "outdir": {

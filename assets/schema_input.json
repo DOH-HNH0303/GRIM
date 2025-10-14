@@ -1,7 +1,7 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://raw.githubusercontent.com/DOH-HNH0303/grim/master/assets/schema_input.json",
-    "title": "DOH-HNH0303/grim pipeline - params.input schema",
+    "$id": "https://raw.githubusercontent.com/nf-core/grim/master/assets/schema_input.json",
+    "title": "nf-core/grim pipeline - params.input schema",
     "description": "Schema for the file provided with params.input",
     "type": "array",
     "items": {
@@ -13,21 +13,28 @@
                 "errorMessage": "Sample name must be provided and cannot contain spaces",
                 "meta": ["id"]
             },
-            "fastq_1": {
+            "gamma_ar_file": {
                 "type": "string",
                 "format": "file-path",
                 "exists": true,
-                "pattern": "^\\S+\\.f(ast)?q\\.gz$",
-                "errorMessage": "FastQ file for reads 1 must be provided, cannot contain spaces and must have extension '.fq.gz' or '.fastq.gz'"
+                "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.gamma$",
+                "errorMessage": "GAMMA AR file must be provided, cannot contain spaces and must have extension '.gamma'"
             },
-            "fastq_2": {
+            "amrfinder_report": {
                 "type": "string",
                 "format": "file-path",
                 "exists": true,
-                "pattern": "^\\S+\\.f(ast)?q\\.gz$",
-                "errorMessage": "FastQ file for reads 2 cannot contain spaces and must have extension '.fq.gz' or '.fastq.gz'"
+                "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.(tsv|txt)$",
+                "errorMessage": "AMRFinder report file must be provided, cannot contain spaces and must have extension '.tsv' or '.txt'"
+            },
+            "assembly_fasta": {
+                "type": "string",
+                "format": "file-path",
+                "exists": true,
+                "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.(fasta|fa|fna)(\\.gz)?$",
+                "errorMessage": "Assembly FASTA file must be provided, cannot contain spaces and must have extension '.fasta', '.fa', or '.fna' (optionally gzipped)"
             }
         },
-        "required": ["sample", "fastq_1"]
+        "required": ["sample", "gamma_ar_file", "amrfinder_report", "assembly_fasta"]
     }
 }

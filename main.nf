@@ -1,9 +1,11 @@
 #!/usr/bin/env nextflow
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    DOH-HNH0303/grim
+    nf-core/grim
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    Github : https://github.com/DOH-HNH0303/grim
+    Github : https://github.com/nf-core/grim
+    Website: https://nf-co.re/grim
+    Slack  : https://nfcore.slack.com/channels/grim
 ----------------------------------------------------------------------------------------
 */
 
@@ -24,10 +26,7 @@ include { getGenomeAttribute      } from './subworkflows/local/utils_nfcore_grim
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-// TODO nf-core: Remove this line if you don't need a FASTA file
-//   This is an example of how to use getGenomeAttribute() to fetch parameters
-//   from igenomes.config using `--genome`
-params.fasta = getGenomeAttribute('fasta')
+// Phoenix AMR Locator doesn't need genome references as it uses Phoenix output files directly
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -38,7 +37,7 @@ params.fasta = getGenomeAttribute('fasta')
 //
 // WORKFLOW: Run main analysis pipeline depending on type of input
 //
-workflow DOHHNH0303_GRIM {
+workflow NFCORE_GRIM {
 
     take:
     samplesheet // channel: samplesheet read in from --input
@@ -52,6 +51,8 @@ workflow DOHHNH0303_GRIM {
         samplesheet
     )
     emit:
+    gene_locations = GRIM.out.gene_locations // channel: [ meta, gene_locations.tsv ]
+    detailed_amr   = GRIM.out.detailed_amr   // channel: [ meta, detailed_amr.tsv ]
     multiqc_report = GRIM.out.multiqc_report // channel: /path/to/multiqc_report.html
 }
 /*
@@ -78,7 +79,7 @@ workflow {
     //
     // WORKFLOW: Run main workflow
     //
-    DOHHNH0303_GRIM (
+    NFCORE_GRIM (
         PIPELINE_INITIALISATION.out.samplesheet
     )
     //
@@ -91,7 +92,7 @@ workflow {
         params.outdir,
         params.monochrome_logs,
         params.hook_url,
-        DOHHNH0303_GRIM.out.multiqc_report
+        NFCORE_GRIM.out.multiqc_report
     )
 }
 
