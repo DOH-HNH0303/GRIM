@@ -3,7 +3,7 @@ process RESOLVE_PHOENIX_FILES {
     label 'process_single'
 
     input:
-    tuple val(meta), path(phoenix_outdir), path(ont_genome)
+    tuple val(meta), path(phoenix_run_dir), path(ont_genome)
 
     output:
     tuple val(meta), path("gamma_ar_file"), path("amrfinder_report"), path("phoenix_assembly"), path(ont_genome), emit: resolved_files
@@ -15,29 +15,68 @@ process RESOLVE_PHOENIX_FILES {
     script:
     def sample_id = meta.id
     """
-    # Find GAMMA file (with wildcard pattern)
-    gamma_file=\$(find ${phoenix_outdir}/${sample_id}/ -name "${sample_id}_ResGANNCBI_*_srst2.gamma" | head -1)
+    # Check if phoenix_summary.tsv exists in the run directory
+    if [ ! -f "${phoenix_run_dir}/phoenix_summary.tsv" ]; then
+        echo "ERROR: Could not find phoenix_summary.tsv in run directory ${phoenix_run_dir}/"
+        echo "Expected structure: ${phoenix_run_dir}/phoenix_summary.tsv and ${phoenix_run_dir}/${sample_id}/"
+        exit 1
+    fi
+
+    # Check if sample directory exists in the run directory
+    if [ ! -d "${phoenix_run_dir}/${sample_id}" ]; then
+        echo "ERROR: Could not find sample directory ${phoenix_run_dir}/${sample_id}/"
+        echo "Available directories in ${phoenix_run_dir}:"
+        ls -la "${phoenix_run_dir}/"
+        exit 1
+    fi
+
+    # Find GAMMA file (search in process subdirectories)
+    gamma_file=\$(find ${phoenix_run_dir}/${sample_id}/ -name "${sample_id}_ResGANNCBI_*_srst2.gamma" | head -1)
     if [ -z "\$gamma_file" ]; then
-        echo "ERROR: Could not find GAMMA file for sample ${sample_id} in ${phoenix_outdir}/${sample_id}/"
+        echo "ERROR: Could not find GAMMA file for sample ${sample_id}"
+        echo "Searched in: ${phoenix_run_dir}/${sample_id}/*/?"
+        echo "Expected pattern: ${sample_id}_ResGANNCBI_*_srst2.gamma"
+        echo "Available structure in ${phoenix_run_dir}/${sample_id}/:"
+        find "${phoenix_run_dir}/${sample_id}/" -type f -name "*.gamma" 2>/dev/null || echo "No .gamma files found"
+        echo "Directory structure:"
+        ls -la "${phoenix_run_dir}/${sample_id}/"
         exit 1
     fi
     ln -s "\$gamma_file" gamma_ar_file
 
-    # Find AMRFinder report
-    amrfinder_file="${phoenix_outdir}/${sample_id}/${sample_id}_amrfinder_report.tsv"
-    if [ ! -f "\$amrfinder_file" ]; then
-        echo "ERROR: Could not find AMRFinder report for sample ${sample_id} at \$amrfinder_file"
+    # Find AMRFinder report (search in process subdirectories)
+    amrfinder_file=\$(find ${phoenix_run_dir}/${sample_id}/ -name "${sample_id}_amrfinder_report.tsv" | head -1)
+    if [ -z "\$amrfinder_file" ]; then
+        echo "ERROR: Could not find AMRFinder report for sample ${sample_id}"
+        echo "Searched in: ${phoenix_run_dir}/${sample_id}/*/?"
+        echo "Expected pattern: ${sample_id}_amrfinder_report.tsv"
+        echo "Available TSV files in ${phoenix_run_dir}/${sample_id}/:"
+        find "${phoenix_run_dir}/${sample_id}/" -type f -name "*.tsv" 2>/dev/null || echo "No .tsv files found"
+        echo "Directory structure:"
+        ls -la "${phoenix_run_dir}/${sample_id}/"
         exit 1
     fi
     ln -s "\$amrfinder_file" amrfinder_report
 
-    # Find Phoenix assembly
-    assembly_file="${phoenix_outdir}/${sample_id}/${sample_id}_scaffolds.fasta"
-    if [ ! -f "\$assembly_file" ]; then
-        echo "ERROR: Could not find Phoenix assembly for sample ${sample_id} at \$assembly_file"
+    # Find Phoenix assembly (search in process subdirectories)
+    assembly_file=\$(find ${phoenix_run_dir}/${sample_id}/ -name "${sample_id}_scaffolds.fasta" | head -1)
+    if [ -z "\$assembly_file" ]; then
+        echo "ERROR: Could not find Phoenix assembly for sample ${sample_id}"
+        echo "Searched in: ${phoenix_run_dir}/${sample_id}/*/?"
+        echo "Expected pattern: ${sample_id}_scaffolds.fasta"
+        echo "Available FASTA files in ${phoenix_run_dir}/${sample_id}/:"
+        find "${phoenix_run_dir}/${sample_id}/" -type f -name "*.fasta" -o -name "*.fa" -o -name "*.fna" 2>/dev/null || echo "No FASTA files found"
+        echo "Directory structure:"
+        ls -la "${phoenix_run_dir}/${sample_id}/"
         exit 1
     fi
     ln -s "\$assembly_file" phoenix_assembly
+
+    echo "Successfully resolved files for sample ${sample_id}:"
+    echo "  GAMMA file: \$gamma_file"
+    echo "  AMRFinder report: \$amrfinder_file" 
+    echo "  Phoenix assembly: \$assembly_file"
+    echo "  ONT genome: ${ont_genome}"
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

@@ -48,19 +48,19 @@
                 "required": ["sample", "gamma_ar_file", "amrfinder_report", "phoenix_assembly_fasta", "ont_complete_genome"]
             },
             {
-                "description": "Format 2: Phoenix output directory",
+                "description": "Format 2: Phoenix run directory with process subdirectories (contains phoenix_summary.tsv and sample subdirectories with process-organized files)",
                 "properties": {
                     "sample": {
                         "type": "string",
                         "pattern": "^\\S+$",
-                        "errorMessage": "Sample name must be provided and cannot contain spaces",
+                        "errorMessage": "Sample name must be provided and cannot contain spaces. This should match the name of the subdirectory in phoenix_outdir.",
                         "meta": ["id"]
                     },
                     "phoenix_outdir": {
                         "type": "string",
                         "format": "directory-path",
                         "exists": true,
-                        "errorMessage": "Phoenix output directory must be provided and must exist"
+                        "errorMessage": "Phoenix run directory must be provided and must exist. This directory should contain phoenix_summary.tsv and sample subdirectories with process-organized files (e.g., run_001/SAMPLE_001/PROCESS_NAME/file.txt)."
                     },
                     "ont_complete_genome": {
                         "type": "string",
