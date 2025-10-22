@@ -74,24 +74,6 @@ workflow PIPELINE_INITIALISATION {
 
     Channel
         .fromList(samplesheetToList(params.input, "${projectDir}/assets/schema_input.json"))
-        .map { row ->
-            if (row.size() == 4) {
-                // Format 1: Individual file paths
-                def (meta, gamma_ar_file, amrfinder_report, assembly_fasta) = row
-                return [ meta, gamma_ar_file, amrfinder_report, assembly_fasta ]
-            } else if (row.size() == 3) {
-                // Format 2: Phoenix output directory
-                def (meta, phoenix_outdir, ont_complete_genome) = row
-                // Auto-discover the required files
-                def sample_name = meta.id
-                def gamma_ar_file = "${phoenix_outdir}/${sample_name}/${sample_name}_ResGANNCBI_*_srst2.gamma"
-                def amrfinder_report = "${phoenix_outdir}/${sample_name}/${sample_name}_amrfinder_report.tsv"
-                def assembly_fasta = "${phoenix_outdir}/${sample_name}/${sample_name}_scaffolds.fasta"
-                return [ meta, gamma_ar_file, amrfinder_report, assembly_fasta, ont_complete_genome ]
-            } else {
-                error "Invalid input format: Expected 3 or 4 columns, got ${row.size()}"
-            }
-        }
         .set { ch_samplesheet }
 
     emit:
