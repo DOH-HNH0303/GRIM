@@ -45,7 +45,8 @@
                         "errorMessage": "ONT complete genome FASTA file must be provided, cannot contain spaces and must have extension '.fasta', '.fa', or '.fna' (optionally gzipped)"
                     }
                 },
-                "required": ["sample", "gamma_ar_file", "amrfinder_report", "phoenix_assembly_fasta", "ont_complete_genome"]
+                "required": ["sample", "gamma_ar_file", "amrfinder_report", "phoenix_assembly_fasta", "ont_complete_genome"],
+                "additionalProperties": false
             },
             {
                 "description": "Format 2: Phoenix run directory with process subdirectories (contains phoenix_summary.tsv and sample subdirectories with process-organized files)",
@@ -70,7 +71,8 @@
                         "errorMessage": "ONT complete genome FASTA file must be provided, cannot contain spaces and must have extension '.fasta', '.fa', or '.fna' (optionally gzipped)"
                     }
                 },
-                "required": ["sample", "phoenix_outdir", "ont_complete_genome"]
+                "required": ["sample", "phoenix_outdir", "ont_complete_genome"],
+                "additionalProperties": false
             }
         ]
     }
