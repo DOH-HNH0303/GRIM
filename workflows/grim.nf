@@ -33,12 +33,14 @@ workflow GRIM {
     //
     ch_samplesheet
         .branch { row ->
-            individual_files: row.size() == 5
-                return [row[0], row[1], row[2], row[3], row[4]]
-            phoenix_outdir: row.size() == 3
-                return [row[0], row[1], row[2]]
+            individual_files: row[1] != null && row[1] != [] && row[1].toString().endsWith('.gamma')
+                // Format 1: [meta, gamma_ar_file, amrfinder_report, phoenix_assembly_fasta, ont_complete_genome]
+                return [row[0], row[1], row[2], row[3], row[5]]
+            phoenix_outdir: row[4] != null && row[4] != []
+                // Format 2: [meta, phoenix_outdir, ont_complete_genome]
+                return [row[0], row[4], row[5]]
             invalid: true
-                error "Invalid samplesheet format. Expected either 5 columns (individual files) or 3 columns (phoenix_outdir format)"
+                error "Invalid samplesheet format. Could not determine format from row: ${row}"
         }
         .set { ch_input_formats }
 

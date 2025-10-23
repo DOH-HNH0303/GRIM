@@ -6,74 +6,35 @@
     "type": "array",
     "items": {
         "type": "object",
-        "oneOf": [
-            {
-                "description": "Format 1: Individual file paths",
-                "properties": {
-                    "sample": {
-                        "type": "string",
-                        "pattern": "^\\S+$",
-                        "errorMessage": "Sample name must be provided and cannot contain spaces",
-                        "meta": ["id"]
-                    },
-                    "gamma_ar_file": {
-                        "type": "string",
-                        "format": "file-path",
-                        "exists": true,
-                        "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.gamma$",
-                        "errorMessage": "GAMMA AR file must be provided, cannot contain spaces and must have extension '.gamma'"
-                    },
-                    "amrfinder_report": {
-                        "type": "string",
-                        "format": "file-path",
-                        "exists": true,
-                        "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.(tsv|txt)$",
-                        "errorMessage": "AMRFinder report file must be provided, cannot contain spaces and must have extension '.tsv' or '.txt'"
-                    },
-                    "phoenix_assembly_fasta": {
-                        "type": "string",
-                        "format": "file-path",
-                        "exists": true,
-                        "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.(fasta|fa|fna)(\\.gz)?$",
-                        "errorMessage": "Phoenix assembly FASTA file must be provided, cannot contain spaces and must have extension '.fasta', '.fa', or '.fna' (optionally gzipped)"
-                    },
-                    "ont_complete_genome": {
-                        "type": "string",
-                        "format": "file-path",
-                        "exists": true,
-                        "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.(fasta|fa|fna)(\\.gz)?$",
-                        "errorMessage": "ONT complete genome FASTA file must be provided, cannot contain spaces and must have extension '.fasta', '.fa', or '.fna' (optionally gzipped)"
-                    }
-                },
-                "required": ["sample", "gamma_ar_file", "amrfinder_report", "phoenix_assembly_fasta", "ont_complete_genome"],
-                "additionalProperties": false
+        "properties": {
+            "sample": {
+                "type": "string",
+                "pattern": "^\\S+$",
+                "errorMessage": "Sample name must be provided and cannot contain spaces",
+                "meta": ["id"]
             },
-            {
-                "description": "Format 2: Phoenix run directory with process subdirectories (contains phoenix_summary.tsv and sample subdirectories with process-organized files)",
-                "properties": {
-                    "sample": {
-                        "type": "string",
-                        "pattern": "^\\S+$",
-                        "errorMessage": "Sample name must be provided and cannot contain spaces. This should match the name of the subdirectory in phoenix_outdir.",
-                        "meta": ["id"]
-                    },
-                    "phoenix_outdir": {
-                        "type": "string",
-                        "format": "directory-path",
-                        "exists": true,
-                        "errorMessage": "Phoenix run directory must be provided and must exist. This directory should contain phoenix_summary.tsv and sample subdirectories with process-organized files (e.g., run_001/SAMPLE_001/PROCESS_NAME/file.txt)."
-                    },
-                    "ont_complete_genome": {
-                        "type": "string",
-                        "format": "file-path",
-                        "exists": true,
-                        "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.(fasta|fa|fna)(\\.gz)?$",
-                        "errorMessage": "ONT complete genome FASTA file must be provided, cannot contain spaces and must have extension '.fasta', '.fa', or '.fna' (optionally gzipped)"
-                    }
-                },
-                "required": ["sample", "phoenix_outdir", "ont_complete_genome"],
-                "additionalProperties": false
+            "gamma_ar_file": {
+                "type": "string",
+                "errorMessage": "GAMMA AR file path"
+            },
+            "amrfinder_report": {
+                "type": "string",
+                "errorMessage": "AMRFinder report file path"
+            },
+            "phoenix_assembly_fasta": {
+                "type": "string",
+                "errorMessage": "Phoenix assembly FASTA file path"
+            },
+            "phoenix_outdir": {
+                "type": "string",
+                "errorMessage": "Phoenix output directory path"
+            },
+            "ont_complete_genome": {
+                "type": "string",
+                "errorMessage": "ONT complete genome FASTA file path"
             }
-        ]
+        },
+        "required": ["sample"],
+        "additionalProperties": false
     }
 }
