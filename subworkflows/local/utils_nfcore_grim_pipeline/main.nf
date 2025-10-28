@@ -74,6 +74,20 @@ workflow PIPELINE_INITIALISATION {
 
     Channel
         .fromList(samplesheetToList(params.input, "${projectDir}/assets/schema_input.json"))
+        .map { row ->
+            def meta = row[0]
+            def num_data_columns = row.size() - 1
+            
+            if (num_data_columns == 4) {
+                // 5-column format
+                return ['individual_files', meta, row[1], row[2], row[3], row[4]]
+            } else if (num_data_columns == 2) {
+                // 3-column format  
+                return ['phoenix_outdir', meta, row[1], row[2]]
+            } else {
+                error "Invalid samplesheet format..."
+            }
+        }
         .set { ch_samplesheet }
 
     emit:
