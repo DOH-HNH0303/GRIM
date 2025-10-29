@@ -1,5 +1,6 @@
 //
 // Subworkflow with functionality specific to the nf-core/grim pipeline
+// REWRITTEN TO FOLLOW PHOENIX APPROACH - direct S3 URL handling with splitCsv
 //
 
 /*
@@ -10,7 +11,6 @@
 
 include { UTILS_NFSCHEMA_PLUGIN     } from '../../nf-core/utils_nfschema_plugin'
 include { paramsSummaryMap          } from 'plugin/nf-schema'
-include { samplesheetToList         } from 'plugin/nf-schema'
 include { completionEmail           } from '../../nf-core/utils_nfcore_pipeline'
 include { completionSummary         } from '../../nf-core/utils_nfcore_pipeline'
 include { imNotification            } from '../../nf-core/utils_nfcore_pipeline'
@@ -69,25 +69,14 @@ workflow PIPELINE_INITIALISATION {
     validateInputParameters()
 
     //
-    // Create channel from input file provided through params.input
+    // Create channel from input file - PHOENIX STYLE APPROACH
+    // Simple, direct parsing with splitCsv - let Nextflow handle S3 URLs
     //
 
     Channel
-        .fromList(samplesheetToList(params.input, "${projectDir}/assets/schema_input.json"))
-        .map { row ->
-            def meta = row[0]
-            def num_data_columns = row.size() - 1
-            
-            if (num_data_columns == 4) {
-                // 5-column format
-                return ['individual_files', meta, row[1], row[2], row[3], row[4]]
-            } else if (num_data_columns == 2) {
-                // 3-column format  
-                return ['phoenix_outdir', meta, row[1], row[2]]
-            } else {
-                error "Invalid samplesheet format..."
-            }
-        }
+        .fromPath(params.input, checkIfExists: true)
+        .splitCsv(header: true, sep: ',')
+        .map { create_grim_channels(it) }
         .set { ch_samplesheet }
 
     emit:
@@ -256,4 +245,70 @@ def methodsDescriptionText(mqc_methods_yaml) {
     def description_html = engine.createTemplate(methods_text).make(meta)
 
     return description_html.toString()
+}
+
+//
+// Function to create GRIM channels - PHOENIX STYLE APPROACH
+// Inspired by Phoenix's create_fastq_channels function
+//
+def create_grim_channels(LinkedHashMap row) {
+    def meta = [:]
+    meta.id = row.sample
+    
+    // Determine format based on columns present (like Phoenix auto-detects single/paired-end)
+    def array = []
+    
+    if (row.containsKey('gamma_ar_file') && row.gamma_ar_file) {
+        // Format 1: Individual files (5 columns)
+        // sample,gamma_ar_file,amrfinder_report,phoenix_assembly_fasta,ont_complete_genome
+        
+        // Check files exist (Phoenix approach - direct file() calls)
+        if (!file(row.gamma_ar_file).exists()) {
+            exit 1, "ERROR: Please check input samplesheet -> GAMMA file does not exist!\n${row.gamma_ar_file}"
+        }
+        if (!file(row.amrfinder_report).exists()) {
+            exit 1, "ERROR: Please check input samplesheet -> AMRFinder report does not exist!\n${row.amrfinder_report}"
+        }
+        if (!file(row.phoenix_assembly_fasta).exists()) {
+            exit 1, "ERROR: Please check input samplesheet -> Phoenix assembly does not exist!\n${row.phoenix_assembly_fasta}"
+        }
+        if (!file(row.ont_complete_genome).exists()) {
+            exit 1, "ERROR: Please check input samplesheet -> ONT genome does not exist!\n${row.ont_complete_genome}"
+        }
+        
+        // Create channel data - individual files format
+        array = [
+            'individual_files',
+            meta,
+            file(row.gamma_ar_file),
+            file(row.amrfinder_report), 
+            file(row.phoenix_assembly_fasta),
+            file(row.ont_complete_genome)
+        ]
+        
+    } else if (row.containsKey('phoenix_outdir') && row.phoenix_outdir) {
+        // Format 2: Phoenix output directory (3 columns)
+        // sample,phoenix_outdir,ont_complete_genome
+        
+        // Check directory and ONT file exist (Phoenix approach)
+        if (!file(row.phoenix_outdir).exists()) {
+            exit 1, "ERROR: Please check input samplesheet -> Phoenix output directory does not exist!\n${row.phoenix_outdir}"
+        }
+        if (!file(row.ont_complete_genome).exists()) {
+            exit 1, "ERROR: Please check input samplesheet -> ONT genome does not exist!\n${row.ont_complete_genome}"
+        }
+        
+        // Create channel data - phoenix directory format
+        array = [
+            'phoenix_outdir',
+            meta,
+            file(row.phoenix_outdir),     // Let Nextflow handle S3 staging!
+            file(row.ont_complete_genome)
+        ]
+        
+    } else {
+        exit 1, "ERROR: Invalid samplesheet format for sample ${row.sample}. Expected either 5-column (individual files) or 3-column (phoenix_outdir) format."
+    }
+    
+    return array
 }
