@@ -13,7 +13,7 @@ include { methodsDescriptionText } from '../subworkflows/local/utils_nfcore_grim
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    RUN MAIN WORKFLOW - PHOENIX-OPTIMIZED VERSION
+    RUN MAIN WORKFLOW - PHOENIX STYLE APPROACH (Direct S3 URL Handling)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
@@ -31,7 +31,7 @@ workflow GRIM {
     // Format 1: sample,gamma_ar_file,amrfinder_report,phoenix_assembly_fasta,ont_complete_genome
     // Format 2: sample,phoenix_outdir,ont_complete_genome
     //
-    ch_samplesheet
+    ch_samplesheet//.brach_samplesheet
         .branch { row ->
             individual_files: row[0] == 'individual_files'
                 return [row[1], row[2], row[3], row[4], row[5]]
