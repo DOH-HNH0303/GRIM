@@ -51,7 +51,7 @@ process RESOLVE_PHOENIX_FILES {
     ln -s "\$gamma_file" gamma_ar_file
 
     # Find AMRFinder report (search in process subdirectories)
-    amrfinder_file=\$(find ${phoenix_run_dir}/${sample_id}/ -name "${sample_id}_amrfinder_report.tsv" | head -1)
+    amrfinder_file=\$(find ${phoenix_run_dir}/${sample_id}/ -name "${sample_id}_all_genes.tsv" | head -1)
     if [ -z "\$amrfinder_file" ]; then
         echo "ERROR: Could not find AMRFinder report for sample ${sample_id}"
         echo "Searched in: ${phoenix_run_dir}/${sample_id}/*/?"
@@ -65,7 +65,7 @@ process RESOLVE_PHOENIX_FILES {
     ln -s "\$amrfinder_file" amrfinder_report
 
     # Find Phoenix assembly (search in process subdirectories)
-    assembly_file=\$(find ${phoenix_run_dir}/${sample_id}/ -name "${sample_id}_scaffolds.fasta" | head -1)
+    assembly_file=\$(find ${phoenix_run_dir}/${sample_id}/ -name "${sample_id}.scaffolds.fa.gz" | head -1)
     if [ -z "\$assembly_file" ]; then
         echo "ERROR: Could not find Phoenix assembly for sample ${sample_id}"
         echo "Searched in: ${phoenix_run_dir}/${sample_id}/*/?"
