@@ -291,7 +291,8 @@ def create_grim_channels(LinkedHashMap row) {
         // sample,phoenix_outdir,ont_complete_genome
         
         // Check directory and ONT file exist (Phoenix approach)
-        if (!file(row.phoenix_outdir).exists()) {
+        // For S3 URLs, skip existence check as Nextflow will handle staging
+        if (!row.phoenix_outdir.startsWith('s3://') && !file(row.phoenix_outdir).exists()) {
             exit 1, "ERROR: Please check input samplesheet -> Phoenix output directory does not exist!\n${row.phoenix_outdir}"
         }
         if (!file(row.ont_complete_genome).exists()) {
