@@ -34,7 +34,7 @@ process RESOLVE_PHOENIX_FILES {
     if [ -d "${phoenix_run_dir}" ]; then
         echo "Found traditional Phoenix directory structure"
         search_dir="${phoenix_run_dir}"
-        summary_file="${phoenix_run_dir}/phoenix_summary.tsv"
+        summary_file="${phoenix_run_dir}/Phoenix_Summary.tsv"
         sample_dir="${phoenix_run_dir}/${sample_id}"
     else
         echo "Phoenix directory not found as nested structure, checking for flattened S3 staging"
@@ -42,8 +42,8 @@ process RESOLVE_PHOENIX_FILES {
         search_dir="."
         
         # Look for Phoenix summary file - try both lowercase and capitalized versions
-        if [ -f "phoenix_summary.tsv" ]; then
-            summary_file="phoenix_summary.tsv"
+        if [ -f "Phoenix_Summary.tsv" ]; then
+            summary_file="Phoenix_Summary.tsv"
         elif [ -f "Phoenix_Summary.tsv" ]; then
             summary_file="Phoenix_Summary.tsv"
         else
