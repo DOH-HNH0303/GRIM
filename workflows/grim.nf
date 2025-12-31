@@ -4,6 +4,8 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 include { PHOENIX_AMR_LOCATOR } from '../modules/local/phoenix_amr_locator'
+include { PLASMID_CLASSIFICATION } from '../modules/local/plasmid_classification'
+include { GRIM_GENE_SUMMARY } from '../modules/local/grim_gene_summary'
 include { RESOLVE_PHOENIX_FILES } from '../modules/local/resolve_phoenix_files'
 include { MULTIQC             } from '../modules/nf-core/multiqc/main'
 include { paramsSummaryMap    } from 'plugin/nf-schema'
@@ -68,10 +70,39 @@ workflow GRIM {
     ch_versions = ch_versions.mix(PHOENIX_AMR_LOCATOR.out.versions.first())
 
     //
+    // MODULE: Classify contigs as chromosome/plasmid using MOB-suite
+    // Extract ONT genome from phoenix_files channel
+    //
+    ch_ont_genomes = ch_phoenix_files.map { meta, _gamma, _amrfinder, _phoenix_asm, ont ->
+        tuple(meta, ont)
+    }
+    
+    PLASMID_CLASSIFICATION (
+        ch_ont_genomes
+    )
+    ch_versions = ch_versions.mix(PLASMID_CLASSIFICATION.out.versions.first())
+
+    //
+    // MODULE: Generate per-gene summary CSV with location and plasmid information
+    // Combine outputs from PHOENIX_AMR_LOCATOR and PLASMID_CLASSIFICATION
+    //
+    ch_summary_input = PHOENIX_AMR_LOCATOR.out.mappings
+        .join(PLASMID_CLASSIFICATION.out.classification)
+        .join(PLASMID_CLASSIFICATION.out.replicons)
+        .map { meta, mappings, classification, replicons ->
+            tuple(meta, mappings, classification, replicons)
+        }
+    
+    GRIM_GENE_SUMMARY (
+        ch_summary_input
+    )
+    ch_versions = ch_versions.mix(GRIM_GENE_SUMMARY.out.versions.first())
+
+    //
     // Collect results for MultiQC
     //
-    ch_multiqc_files = ch_multiqc_files.mix(PHOENIX_AMR_LOCATOR.out.locations.collect{it[1]})
-    ch_multiqc_files = ch_multiqc_files.mix(PHOENIX_AMR_LOCATOR.out.detailed_amr.collect{it[1]})
+    ch_multiqc_files = ch_multiqc_files.mix(PHOENIX_AMR_LOCATOR.out.mappings.collect{it[1]})
+    ch_multiqc_files = ch_multiqc_files.mix(GRIM_GENE_SUMMARY.out.summary.collect{it[1]})
 
     //
     // Collate and save software versions
@@ -125,10 +156,13 @@ workflow GRIM {
     )
 
     emit:
-    gene_locations = PHOENIX_AMR_LOCATOR.out.locations    // channel: [ meta, gene_locations.tsv ]
-    detailed_amr   = PHOENIX_AMR_LOCATOR.out.detailed_amr // channel: [ meta, detailed_amr.tsv ]
-    multiqc_report = MULTIQC.out.report.toList()         // channel: /path/to/multiqc_report.html
-    versions       = ch_versions                          // channel: [ path(versions.yml) ]
+    gene_mappings         = PHOENIX_AMR_LOCATOR.out.mappings        // channel: [ meta, gene_mappings.tsv ]
+    unmapped_genes        = PHOENIX_AMR_LOCATOR.out.unmapped        // channel: [ meta, unmapped_genes.txt ]
+    contig_classification = PLASMID_CLASSIFICATION.out.classification // channel: [ meta, contig_classification.tsv ]
+    plasmid_replicons     = PLASMID_CLASSIFICATION.out.replicons    // channel: [ meta, plasmid_replicons.tsv ]
+    gene_summary          = GRIM_GENE_SUMMARY.out.summary           // channel: [ meta, gene_summary.csv ]
+    multiqc_report        = MULTIQC.out.report.toList()             // channel: /path/to/multiqc_report.html
+    versions              = ch_versions                              // channel: [ path(versions.yml) ]
 
 }
 

@@ -11,8 +11,8 @@ process PHOENIX_AMR_LOCATOR {
     tuple val(meta), path(gamma_ar_file), path(amrfinder_report), path(phoenix_assembly_fasta), path(ont_complete_genome)
 
     output:
-    tuple val(meta), path("${prefix}_gene_locations.tsv"), emit: locations
-    tuple val(meta), path("${prefix}_detailed_amr.tsv"), emit: detailed_amr
+    tuple val(meta), path("${prefix}_gene_mappings.tsv"), emit: mappings
+    tuple val(meta), path("${prefix}_unmapped_genes.txt"), emit: unmapped
     path "versions.yml", emit: versions
 
     when:
@@ -22,14 +22,13 @@ process PHOENIX_AMR_LOCATOR {
     def args = task.ext.args ?: ''
     prefix = task.ext.prefix ?: "${meta.id}"
     """
-    phoenix_amr_locator.py \\
+    phoenix_amr_locator_refactored.py \\
         --sample_id ${meta.id} \\
-        --gamma_ar ${gamma_ar_file} \\
-        --amrfinder_report ${amrfinder_report} \\
-        --phoenix_assembly ${phoenix_assembly_fasta} \\
+        --phoenix_genes ${gamma_ar_file},${amrfinder_report} \\
         --ont_genome ${ont_complete_genome} \\
-        --output_locations ${prefix}_gene_locations.tsv \\
-        --output_detailed ${prefix}_detailed_amr.tsv \\
+        --output_mappings ${prefix}_gene_mappings.tsv \\
+        --output_unmapped ${prefix}_unmapped_genes.txt \\
+        --threads ${task.cpus} \\
         $args
 
     cat <<-END_VERSIONS > versions.yml
@@ -45,8 +44,8 @@ process PHOENIX_AMR_LOCATOR {
     def args = task.ext.args ?: ''
     prefix = task.ext.prefix ?: "${meta.id}"
     """
-    touch ${prefix}_gene_locations.tsv
-    touch ${prefix}_detailed_amr.tsv
+    touch ${prefix}_gene_mappings.tsv
+    touch ${prefix}_unmapped_genes.txt
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

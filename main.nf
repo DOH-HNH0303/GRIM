@@ -51,9 +51,12 @@ workflow NFCORE_GRIM {
         samplesheet
     )
     emit:
-    gene_locations = GRIM.out.gene_locations // channel: [ meta, gene_locations.tsv ]
-    detailed_amr   = GRIM.out.detailed_amr   // channel: [ meta, detailed_amr.tsv ]
-    multiqc_report = GRIM.out.multiqc_report // channel: /path/to/multiqc_report.html
+    gene_mappings         = GRIM.out.gene_mappings         // channel: [ meta, gene_mappings.tsv ]
+    unmapped_genes        = GRIM.out.unmapped_genes        // channel: [ meta, unmapped_genes.txt ]
+    contig_classification = GRIM.out.contig_classification // channel: [ meta, contig_classification.tsv ]
+    plasmid_replicons     = GRIM.out.plasmid_replicons     // channel: [ meta, plasmid_replicons.tsv ]
+    gene_summary          = GRIM.out.gene_summary          // channel: [ meta, gene_summary.csv ]
+    multiqc_report        = GRIM.out.multiqc_report        // channel: /path/to/multiqc_report.html
 }
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
