@@ -9,6 +9,7 @@ import argparse
 import pandas as pd
 import sys
 import os
+import gzip
 import subprocess
 from pathlib import Path
 from Bio import SeqIO
@@ -23,7 +24,7 @@ def parse_args():
     parser.add_argument('--sample_id', required=True, help='Sample ID')
     parser.add_argument('--gamma_ar', required=True, help='GAMMA AR output file (.gamma)')
     parser.add_argument('--amrfinder_report', required=False, help='AMRFinder report file')
-    parser.add_argument('--phoenix_assembly', required=True, help='Phoenix assembly FASTA file')
+    parser.add_argument('--illumina_assembly', required=True, help='illumina assembly FASTA file')
     parser.add_argument('--ont_genome', required=True, help='ONT complete genome FASTA file')
     parser.add_argument('--output_mappings', required=True, help='Output gene mappings TSV')
     parser.add_argument('--min_identity', type=float, default=95.0, 
@@ -40,7 +41,7 @@ def parse_gamma_ar_file(gamma_file):
         gamma_file: Path to GAMMA .gamma file
         
     Returns:
-        List of gene dictionaries with Phoenix assembly coordinates
+        List of gene dictionaries with illumina assembly coordinates
     """
     genes = []
     
@@ -68,7 +69,7 @@ def parse_gamma_ar_file(gamma_file):
                     accession = 'Unknown'
                 
                 # Extract relevant information
-                phoenix_contig = fields[1] if len(fields) > 1 else 'Unknown'
+                illumina_contig = fields[1] if len(fields) > 1 else 'Unknown'
                 start_pos = int(fields[2]) if len(fields) > 2 and fields[2].isdigit() else 0
                 end_pos = int(fields[3]) if len(fields) > 3 and fields[3].isdigit() else 0
                 
@@ -81,7 +82,7 @@ def parse_gamma_ar_file(gamma_file):
                     genes.append({
                         'gene_name': gene_name,
                         'gene_id': fields[0],
-                        'phoenix_contig': phoenix_contig,
+                        'illumina_contig': illumina_contig,
                         'phoenix_start': start_pos,
                         'phoenix_end': end_pos,
                         'category': category,
@@ -124,7 +125,7 @@ def parse_amrfinder_report(amrfinder_file):
                     continue
                 
                 # AMRFinder format: Protein identifier, Contig id, Start, Stop, Strand, Gene symbol, ...
-                phoenix_contig = fields[1] if len(fields) > 1 else 'Unknown'
+                illumina_contig = fields[1] if len(fields) > 1 else 'Unknown'
                 start_pos = int(fields[2]) if len(fields) > 2 and fields[2].isdigit() else 0
                 end_pos = int(fields[3]) if len(fields) > 3 and fields[3].isdigit() else 0
                 gene_symbol = fields[5] if len(fields) > 5 else 'Unknown'
@@ -138,7 +139,7 @@ def parse_amrfinder_report(amrfinder_file):
                 amr_data.append({
                     'gene_name': gene_symbol,
                     'gene_id': f"AMRFinder_{gene_symbol}",
-                    'phoenix_contig': phoenix_contig,
+                    'illumina_contig': illumina_contig,
                     'phoenix_start': start_pos,
                     'phoenix_end': end_pos,
                     'category': gene_class,
@@ -153,6 +154,19 @@ def parse_amrfinder_report(amrfinder_file):
     
     return amr_data
 
+
+def open_maybe_gzip(path):
+    # Read first two bytes to detect gzip magic number
+    with open(path, "rb") as f:
+        start = f.read(2)
+
+    if start == b"\x1f\x8b":  # gzip magic number
+        return gzip.open(path, "rt")
+    else:
+        return open(path, "r")
+
+
+
 def get_contig_info(assembly_file):
     """
     Get contig information from assembly FASTA
@@ -164,26 +178,31 @@ def get_contig_info(assembly_file):
         Dictionary mapping contig names to their info (length, sequence)
     """
     contig_info = {}
-    
+
     try:
-        for record in SeqIO.parse(assembly_file, "fasta"):
-            contig_info[record.id] = {
-                'length': len(record.seq),
-                'description': record.description,
-                'sequence': str(record.seq)
-            }
+        # Detect gzip by file extension
+
+        with open_maybe_gzip(assembly_file) as handle:
+            for record in SeqIO.parse(handle, "fasta"):
+                contig_info[record.id] = {
+                    'length': len(record.seq),
+                    'description': record.description,
+                    'sequence': str(record.seq)
+                }
+
+
     except Exception as e:
         print(f"Error reading assembly file {assembly_file}: {e}", file=sys.stderr)
         return {}
     
     return contig_info
 
-def extract_gene_sequence(phoenix_contigs, contig_name, start_pos, end_pos):
+def extract_gene_sequence(illumina_contigs, contig_name, start_pos, end_pos):
     """
     Extract gene sequence from Phoenix assembly
     
     Args:
-        phoenix_contigs: Dictionary of contig information
+        illumina_contigs: Dictionary of contig information
         contig_name: Name of contig containing gene
         start_pos: Gene start position (1-based)
         end_pos: Gene end position (1-based, inclusive)
@@ -191,10 +210,11 @@ def extract_gene_sequence(phoenix_contigs, contig_name, start_pos, end_pos):
     Returns:
         Gene sequence string or None if extraction fails
     """
-    if contig_name not in phoenix_contigs:
+    if contig_name not in illumina_contigs:
+        print(f"{contig_name} not in contigs")
         return None
     
-    contig_seq = phoenix_contigs[contig_name]['sequence']
+    contig_seq = illumina_contigs[contig_name]['sequence']
     
     # Ensure coordinates are within bounds
     start_pos = max(0, start_pos - 1)  # Convert to 0-based indexing
@@ -276,13 +296,13 @@ def run_blast_search(query_seq, ont_genome_file, temp_dir, gene_name="query"):
     
     return None
 
-def map_amr_genes_to_ont(all_genes, phoenix_contigs, ont_genome_file, min_identity=95.0, min_coverage=90.0):
+def map_amr_genes_to_ont(all_genes, illumina_contigs, ont_genome_file, sample_id, min_identity=95.0, min_coverage=90.0):
     """
     Map AMR genes from Phoenix assembly to ONT complete genome using BLAST
     
     Args:
         all_genes: List of gene dictionaries (from GAMMA and AMRFinder)
-        phoenix_contigs: Dictionary of Phoenix assembly contigs
+        illumina_contigs: Dictionary of Phoenix assembly contigs
         ont_genome_file: Path to ONT genome FASTA
         min_identity: Minimum BLAST identity percentage
         min_coverage: Minimum BLAST coverage percentage
@@ -291,19 +311,33 @@ def map_amr_genes_to_ont(all_genes, phoenix_contigs, ont_genome_file, min_identi
         List of mapped gene dictionaries with ONT coordinates
     """
     mapped_genes = []
-    
     with tempfile.TemporaryDirectory() as temp_dir:
+        #illumina_contigs = {"_".join(k.split("_")[1:-2]): v for k, v in illumina_contigs.items()}
+        illumina_contigs = {"_".join(k.replace(f"{sample_id}_", "")
+                                    .replace("NODE_", "")
+                                    .replace("EDGE_", "")
+                                    .split("_")[:-2]): v for k, v in illumina_contigs.items()}
+
         for idx, gene in enumerate(all_genes, 1):
             gene_name = gene['gene_name']
+            gene["illumina_contig"] = gene["illumina_contig"].replace(f"{sample_id}_", "")
+            print("here2")
+            print(gene["illumina_contig"])
+
             print(f"[{idx}/{len(all_genes)}] Processing gene: {gene_name}")
             
             # Extract gene sequence from Phoenix assembly
             gene_seq = extract_gene_sequence(
-                phoenix_contigs, 
-                gene['phoenix_contig'], 
+                illumina_contigs, 
+                gene['illumina_contig'], 
                 gene['phoenix_start'], 
                 gene['phoenix_end']
             )
+            if gene_name != "blaOXY-1-1_NG_049841.1":
+                #print(illumina_contigs)
+                print("here")
+                print(gene['illumina_contig'], gene['phoenix_start'], gene['phoenix_end'])
+                
             
             if not gene_seq:
                 print(f"  ⚠ Could not extract sequence for gene {gene_name}", file=sys.stderr)
@@ -408,7 +442,7 @@ def main():
     for amr_gene in amrfinder_data:
         # Check if gene already exists in GAMMA results
         is_duplicate = any(
-            gamma_gene['phoenix_contig'] == amr_gene['phoenix_contig'] and 
+            gamma_gene['illumina_contig'] == amr_gene['illumina_contig'] and 
             gamma_gene['gene_name'].lower() == amr_gene['gene_name'].lower()
             for gamma_gene in gamma_genes
         )
@@ -422,8 +456,8 @@ def main():
     print(f"  Total unique genes to process: {len(all_genes)}")
     
     print("\n[3/5] Loading assembly files...")
-    phoenix_contigs = get_contig_info(args.phoenix_assembly)
-    print(f"  Phoenix assembly contigs: {len(phoenix_contigs)}")
+    illumina_contigs = get_contig_info(args.illumina_assembly)
+    print(f"  Phoenix assembly contigs: {len(illumina_contigs)}")
     
     ont_contigs = get_contig_info(args.ont_genome)
     print(f"  ONT genome contigs: {len(ont_contigs)}")
@@ -432,8 +466,9 @@ def main():
     print(f"\n[4/5] Mapping AMR genes to ONT genome (min_identity={args.min_identity}%, min_coverage={args.min_coverage}%)...")
     mapped_genes = map_amr_genes_to_ont(
         all_genes, 
-        phoenix_contigs, 
+        illumina_contigs, 
         args.ont_genome,
+        args.sample_id,
         args.min_identity,
         args.min_coverage
     )
@@ -445,7 +480,7 @@ def main():
     # Reorder columns for clarity
     column_order = [
         'gene_name', 'gene_id', 'source', 'category', 'is_beta_lactam',
-        'phoenix_contig', 'phoenix_start', 'phoenix_end',
+        'illumina_contig', 'phoenix_start', 'phoenix_end',
         'ont_contig', 'ont_start', 'ont_end',
         'blast_identity', 'blast_coverage', 'blast_evalue', 'blast_bitscore',
         'mapping_status', 'mapping_failure_reason'
