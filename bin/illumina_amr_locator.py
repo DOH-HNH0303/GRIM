@@ -4,7 +4,6 @@ Phoenix AMR Locator (Refactored)
 Maps AMR genes from Phoenix Illumina assembly to ONT complete genome using BLAST.
 Classification logic has been moved to separate plasmid_classification.py module.
 """
-
 import argparse
 import pandas as pd
 import sys
@@ -16,22 +15,24 @@ from Bio import SeqIO
 from Bio.Blast import NCBIXML
 import tempfile
 
-def parse_args():
-    """Parse command line arguments"""
-    parser = argparse.ArgumentParser(
-        description='Map Phoenix AMR genes onto ONT complete genomes (gene mapping only)'
-    )
-    parser.add_argument('--sample_id', required=True, help='Sample ID')
-    parser.add_argument('--gamma_ar', required=True, help='GAMMA AR output file (.gamma)')
-    parser.add_argument('--amrfinder_report', required=False, help='AMRFinder report file')
-    parser.add_argument('--illumina_assembly', required=True, help='illumina assembly FASTA file')
-    parser.add_argument('--ont_genome', required=True, help='ONT complete genome FASTA file')
-    parser.add_argument('--output_mappings', required=True, help='Output gene mappings TSV')
-    parser.add_argument('--min_identity', type=float, default=95.0, 
-                       help='Minimum BLAST identity percentage (default: 95.0)')
-    parser.add_argument('--min_coverage', type=float, default=90.0,
-                       help='Minimum BLAST coverage percentage (default: 90.0)')
-    return parser.parse_args()
+
+"""Parse command line arguments"""
+parser = argparse.ArgumentParser(
+    description='Map Phoenix AMR genes onto ONT complete genomes (gene mapping only)'
+)
+parser.add_argument('--sample_id', required=True, help='Sample ID')
+parser.add_argument('--gamma_ar', required=False, help='GAMMA AR output file (.gamma)')
+parser.add_argument('--amrfinder_report', required=False, help='AMRFinder report file')
+parser.add_argument('--illumina_assembly', required=True, help='illumina assembly FASTA file')
+parser.add_argument('--ont_genome', required=True, help='ONT complete genome FASTA file')
+parser.add_argument('--output_mappings', required=True, help='Output gene mappings TSV')
+parser.add_argument('--min_identity', type=float, default=95.0, 
+                    help='Minimum BLAST identity percentage (default: 95.0)')
+parser.add_argument('--min_coverage', type=float, default=90.0,
+                    help='Minimum BLAST coverage percentage (default: 90.0)')
+
+
+
 
 def parse_gamma_ar_file(gamma_file):
     """
@@ -421,7 +422,11 @@ def map_amr_genes_to_ont(all_genes, illumina_contigs, ont_genome_file, sample_id
     return mapped_genes
 
 def main():
-    args = parse_args()
+    args = parser.parse_args()
+
+    # Require at least one 
+    if not args.gamma_ar and not args.amrfinder_report: 
+        parser.error("You must provide at least one of --gamma_ar or --amrfinder_report")
     
     print(f"=" * 80)
     print(f"Phoenix AMR Locator (Refactored)")
@@ -430,12 +435,19 @@ def main():
     
     # Parse input files
     print("\n[1/5] Parsing GAMMA AR file...")
-    gamma_genes = parse_gamma_ar_file(args.gamma_ar)
-    print(f"  Found {len(gamma_genes)} genes from GAMMA")
+    if args.gamma_ar:
+        gamma_genes = parse_gamma_ar_file(args.gamma_ar)
+        print(f"  Found {len(gamma_genes)} genes from GAMMA")
+    else:
+        print(f"  No GAMMA file providedd, skipping GAMMA AR gene gathering")
+        gamma_genes =[]
     
     print("\n[2/5] Parsing AMRFinder report...")
-    amrfinder_data = parse_amrfinder_report(args.amrfinder_report) if args.amrfinder_report else []
-    print(f"  Found {len(amrfinder_data)} entries from AMRFinder")
+    if args.amrfinder_report:
+        amrfinder_data = parse_amrfinder_report(args.amrfinder_report) if args.amrfinder_report else []
+        print(f"  Found {len(amrfinder_data)} entries from AMRFinder")
+    else:
+        amrfinder_data = []
     
     # Deduplicate: remove AMRFinder genes that are already in GAMMA
     amrfinder_unique = []

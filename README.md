@@ -33,6 +33,7 @@
 <!-- TODO nf-core: Fill in short bullet-pointed list of the default steps in the pipeline -->1. Parse Phoenix AMR output files (GAMMA and AMRFinder results)
 2. Extract AMR gene sequences from Phoenix assemblies (Illumina-derived)
 3. Map AMR gene sequences to ONT complete genomes using BLAST
+#. Characterize each chromosome as plasmid, chromosome, or other
 4. Classify AMR gene locations on ONT genomes (chromosomal vs plasmid)
 5. Generate comprehensive AMR location mapping reports
 6. Present QC and results summary ([`MultiQC`](http://multiqc.info/))

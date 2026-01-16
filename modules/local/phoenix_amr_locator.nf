@@ -22,7 +22,7 @@ process PHOENIX_AMR_LOCATOR {
     def args = task.ext.args ?: ''
     prefix = task.ext.prefix ?: "${meta.id}"
     """
-    phoenix_amr_locator_refactored.py \\
+    ilumina_amr_locator.py \\
         --sample_id ${meta.id} \\
         --phoenix_genes ${gamma_ar_file},${amrfinder_report} \\
         --ont_genome ${ont_complete_genome} \\
