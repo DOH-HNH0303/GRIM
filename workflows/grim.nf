@@ -3,7 +3,7 @@
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-include { PHOENIX_AMR_LOCATOR } from '../modules/local/phoenix_amr_locator'
+include { ILLUMINA_AMR_LOCATOR } from '../modules/local/illumina_amr_locator'
 include { PLASMID_CLASSIFICATION } from '../modules/local/plasmid_classification'
 include { GRIM_GENE_SUMMARY } from '../modules/local/grim_gene_summary'
 include { RESOLVE_PHOENIX_FILES } from '../modules/local/resolve_phoenix_files'
@@ -64,10 +64,10 @@ workflow GRIM {
     // This leverages the pre-computed GAMMA and AMRFinder results
     // No need to re-parse Phoenix summary files or re-run BLAST!
     //
-    PHOENIX_AMR_LOCATOR (
+    ILLUMINA_AMR_LOCATOR (
         ch_phoenix_files
     )
-    ch_versions = ch_versions.mix(PHOENIX_AMR_LOCATOR.out.versions.first())
+    ch_versions = ch_versions.mix(ILLUMINA_AMR_LOCATOR.out.versions.first())
 
     //
     // MODULE: Classify contigs as chromosome/plasmid using MOB-suite
@@ -86,7 +86,7 @@ workflow GRIM {
     // MODULE: Generate per-gene summary CSV with location and plasmid information
     // Combine outputs from PHOENIX_AMR_LOCATOR and PLASMID_CLASSIFICATION
     //
-    ch_summary_input = PHOENIX_AMR_LOCATOR.out.mappings
+    ch_summary_input = ILLUMINA_AMR_LOCATOR.out.mappings
         .join(PLASMID_CLASSIFICATION.out.classification)
         .join(PLASMID_CLASSIFICATION.out.replicons)
         .map { meta, mappings, classification, replicons ->
@@ -101,7 +101,7 @@ workflow GRIM {
     //
     // Collect results for MultiQC
     //
-    ch_multiqc_files = ch_multiqc_files.mix(PHOENIX_AMR_LOCATOR.out.mappings.collect{it[1]})
+    ch_multiqc_files = ch_multiqc_files.mix(ILLUMINA_AMR_LOCATOR.out.mappings.collect{it[1]})
     ch_multiqc_files = ch_multiqc_files.mix(GRIM_GENE_SUMMARY.out.summary.collect{it[1]})
 
     //
@@ -156,8 +156,8 @@ workflow GRIM {
     )
 
     emit:
-    gene_mappings         = PHOENIX_AMR_LOCATOR.out.mappings        // channel: [ meta, gene_mappings.tsv ]
-    unmapped_genes        = PHOENIX_AMR_LOCATOR.out.unmapped        // channel: [ meta, unmapped_genes.txt ]
+    gene_mappings         = ILLUMINA_AMR_LOCATOR.out.mappings        // channel: [ meta, gene_mappings.tsv ]
+    unmapped_genes        = ILLUMINA_AMR_LOCATOR.out.unmapped        // channel: [ meta, unmapped_genes.txt ]
     contig_classification = PLASMID_CLASSIFICATION.out.classification // channel: [ meta, contig_classification.tsv ]
     plasmid_replicons     = PLASMID_CLASSIFICATION.out.replicons    // channel: [ meta, plasmid_replicons.tsv ]
     gene_summary          = GRIM_GENE_SUMMARY.out.summary           // channel: [ meta, gene_summary.csv ]

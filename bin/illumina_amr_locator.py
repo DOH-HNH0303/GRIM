@@ -84,8 +84,8 @@ def parse_gamma_ar_file(gamma_file):
                         'gene_name': gene_name,
                         'gene_id': fields[0],
                         'illumina_contig': illumina_contig,
-                        'phoenix_start': start_pos,
-                        'phoenix_end': end_pos,
+                        'illumina_start': start_pos,
+                        'illumina_end': end_pos,
                         'category': category,
                         'database': database,
                         'accession': accession,
@@ -141,8 +141,8 @@ def parse_amrfinder_report(amrfinder_file):
                     'gene_name': gene_symbol,
                     'gene_id': f"AMRFinder_{gene_symbol}",
                     'illumina_contig': illumina_contig,
-                    'phoenix_start': start_pos,
-                    'phoenix_end': end_pos,
+                    'illumina_start': start_pos,
+                    'illumina_end': end_pos,
                     'category': gene_class,
                     'is_point_mutation': is_point_mutation,
                     'is_beta_lactam': 'BETA-LACTAM' in gene_class.upper() if gene_class != 'Unknown' else False,
@@ -331,13 +331,13 @@ def map_amr_genes_to_ont(all_genes, illumina_contigs, ont_genome_file, sample_id
             gene_seq = extract_gene_sequence(
                 illumina_contigs, 
                 gene['illumina_contig'], 
-                gene['phoenix_start'], 
-                gene['phoenix_end']
+                gene['illumina_start'], 
+                gene['illumina_end']
             )
             if gene_name != "blaOXY-1-1_NG_049841.1":
                 #print(illumina_contigs)
                 print("here")
-                print(gene['illumina_contig'], gene['phoenix_start'], gene['phoenix_end'])
+                print(gene['illumina_contig'], gene['illumina_start'], gene['illumina_end'])
                 
             
             if not gene_seq:
@@ -429,7 +429,7 @@ def main():
         parser.error("You must provide at least one of --gamma_ar or --amrfinder_report")
     
     print(f"=" * 80)
-    print(f"Phoenix AMR Locator (Refactored)")
+    print(f"Illumina AMR Locator (Refactored)")
     print(f"Sample: {args.sample_id}")
     print(f"=" * 80)
     
@@ -469,7 +469,7 @@ def main():
     
     print("\n[3/5] Loading assembly files...")
     illumina_contigs = get_contig_info(args.illumina_assembly)
-    print(f"  Phoenix assembly contigs: {len(illumina_contigs)}")
+    print(f"  Illumina assembly contigs: {len(illumina_contigs)}")
     
     ont_contigs = get_contig_info(args.ont_genome)
     print(f"  ONT genome contigs: {len(ont_contigs)}")
@@ -492,7 +492,7 @@ def main():
     # Reorder columns for clarity
     column_order = [
         'gene_name', 'gene_id', 'source', 'category', 'is_beta_lactam',
-        'illumina_contig', 'phoenix_start', 'phoenix_end',
+        'illumina_contig', 'illumina_start', 'illumina_end',
         'ont_contig', 'ont_start', 'ont_end',
         'blast_identity', 'blast_coverage', 'blast_evalue', 'blast_bitscore',
         'mapping_status', 'mapping_failure_reason'

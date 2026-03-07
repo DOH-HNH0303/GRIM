@@ -1,11 +1,11 @@
-process PHOENIX_AMR_LOCATOR {
+process ILLUMINA_AMR_LOCATOR {
     tag "$meta.id"
     label 'process_medium'
 
     conda "conda-forge::python=3.9 conda-forge::pandas=1.5.3 conda-forge::biopython=1.81 bioconda::blast=2.14.1"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
         'https://depot.galaxyproject.org/singularity/mulled-v2-1fa26d1ce03c295fe2fdcf85831a92fbcbd7e8c2:1df389393721fc66f3fd8778ad938ac711951107-0':
-        'quay.io/biocontainers/mulled-v2-1fa26d1ce03c295fe2fdcf85831a92fbcbd7e8c2:1df389393721fc66f3fd8778ad938ac711951107-0' }"
+        'public.ecr.aws/o8h2f0o1/illumina_amr_locator:1.0.0' }"
 
     input:
     tuple val(meta), path(gamma_ar_file), path(amrfinder_report), path(phoenix_assembly_fasta), path(ont_complete_genome)
