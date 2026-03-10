@@ -8,3 +8,5 @@ cranky_pauling-params.json
 /bin/*txt
 /bin/mob*
 
+bin/amrfinder_report
+bin/gamma_ar_file

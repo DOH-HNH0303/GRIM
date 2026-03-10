@@ -8,7 +8,7 @@ process ILLUMINA_AMR_LOCATOR {
         'public.ecr.aws/o8h2f0o1/illumina_amr_locator:1.0.0' }"
 
     input:
-    tuple val(meta), path(gamma_ar_file), path(amrfinder_report), path(phoenix_assembly_fasta), path(ont_complete_genome)
+    tuple val(meta), path(gamma_ar_file), path(amrfinder_report), path(illumina_assembly_fasta), path(ont_complete_genome)
 
     output:
     tuple val(meta), path("${prefix}_gene_mappings.tsv"), emit: mappings
@@ -24,7 +24,9 @@ process ILLUMINA_AMR_LOCATOR {
     """
     illumina_amr_locator.py \\
         --sample_id ${meta.id} \\
-        --phoenix_genes ${gamma_ar_file},${amrfinder_report} \\
+        --gamma_ar ${gamma_ar_file} \\
+        --amrfinder_report ${amrfinder_report} \\
+        --illumina_assembly ${illumina_assembly_fasta} \\
         --ont_genome ${ont_complete_genome} \\
         --output_mappings ${prefix}_gene_mappings.tsv \\
         --output_unmapped ${prefix}_unmapped_genes.txt \\
