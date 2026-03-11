@@ -92,7 +92,7 @@
                     "@id": ".prettierignore"
                 }
             ],
-            "isBasedOn": "https://github.com/nf-core/amrlocator",
+            "isBasedOn": "https://github.com/DOH-HNH0303/GRIM",
             "license": "MIT",
             "mainEntity": {
                 "@id": "main.nf"
@@ -102,7 +102,7 @@
                     "@id": "#0bc7c614-6ddb-4913-bcfb-9abdb01940de"
                 }
             ],
-            "name": "nf-core/amrlocator"
+            "name": "DOH-HNH0303/GRIM"
         },
         {
             "@id": "ro-crate-metadata.json",
@@ -137,7 +137,7 @@
                 "MIT"
             ],
             "name": [
-                "nf-core/amrlocator"
+                "DOH-HNH0303/GRIM"
             ],
             "programmingLanguage": {
                 "@id": "https://w3id.org/workflowhub/workflow-ro-crate#nextflow"
@@ -146,8 +146,7 @@
                 "@id": "https://nf-co.re/"
             },
             "url": [
-                "https://github.com/nf-core/amrlocator",
-                "https://nf-co.re/amrlocator/dev/"
+                "https://github.com/DOH-HNH0303/GRIM"
             ],
             "version": [
                 "1.0.0dev"

@@ -1,6 +1,6 @@
 process PLASMID_CLASSIFICATION {
     tag "$meta.id"
-    label 'process_high'
+    label 'process_low'
 
     conda "bioconda::mob_suite=3.1.9"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?

@@ -1,6 +1,6 @@
 process ILLUMINA_AMR_LOCATOR {
     tag "$meta.id"
-    label 'process_medium'
+    label 'process_low'
 
     conda "conda-forge::python=3.9 conda-forge::pandas=1.5.3 conda-forge::biopython=1.81 bioconda::blast=2.14.1"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
@@ -27,10 +27,10 @@ process ILLUMINA_AMR_LOCATOR {
         --gamma_ar ${gamma_ar_file} \\
         --amrfinder_report ${amrfinder_report} \\
         --illumina_assembly ${illumina_assembly_fasta} \\
-        --ont_genome ${ont_complete_genome} \\
+        --hybrid_genome ${ont_complete_genome} \\
         --output_mappings ${prefix}_gene_mappings.tsv \\
-        --output_unmapped ${prefix}_unmapped_genes.txt \\
-        --threads ${task.cpus} \\
+        # --output_unmapped ${prefix}_unmapped_genes.txt \\
+        # --threads ${task.cpus} \\
         $args
 
     cat <<-END_VERSIONS > versions.yml

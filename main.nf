@@ -16,9 +16,9 @@
 */
 
 include { GRIM  } from './workflows/grim'
-include { PIPELINE_INITIALISATION } from './subworkflows/local/utils_nfcore_grim_pipeline'
-include { PIPELINE_COMPLETION     } from './subworkflows/local/utils_nfcore_grim_pipeline'
-include { getGenomeAttribute      } from './subworkflows/local/utils_nfcore_grim_pipeline'
+include { PIPELINE_INITIALISATION } from './subworkflows/local/utils_GRIM_pipeline'
+include { PIPELINE_COMPLETION     } from './subworkflows/local/utils_GRIM_pipeline'
+include { getGenomeAttribute      } from './subworkflows/local/utils_GRIM_pipeline'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -37,7 +37,7 @@ include { getGenomeAttribute      } from './subworkflows/local/utils_nfcore_grim
 //
 // WORKFLOW: Run main analysis pipeline depending on type of input
 //
-workflow NFCORE_GRIM {
+workflow DOHHNH0303_GRIM {
 
     take:
     samplesheet // channel: samplesheet read in from --input
@@ -53,8 +53,7 @@ workflow NFCORE_GRIM {
     emit:
     gene_mappings         = GRIM.out.gene_mappings         // channel: [ meta, gene_mappings.tsv ]
     unmapped_genes        = GRIM.out.unmapped_genes        // channel: [ meta, unmapped_genes.txt ]
-    contig_classification = GRIM.out.contig_classification // channel: [ meta, contig_classification.tsv ]
-    plasmid_replicons     = GRIM.out.plasmid_replicons     // channel: [ meta, plasmid_replicons.tsv ]
+    mobtyper_results      = GRIM.out.mobtyper_results // channel: [ meta, mobtyper_results.tsv ]
     gene_summary          = GRIM.out.gene_summary          // channel: [ meta, gene_summary.csv ]
     multiqc_report        = GRIM.out.multiqc_report        // channel: /path/to/multiqc_report.html
 }
@@ -82,7 +81,7 @@ workflow {
     //
     // WORKFLOW: Run main workflow
     //
-    NFCORE_GRIM (
+    DOHHNH0303_GRIM (
         PIPELINE_INITIALISATION.out.samplesheet
     )
     //
@@ -95,7 +94,7 @@ workflow {
         params.outdir,
         params.monochrome_logs,
         params.hook_url,
-        NFCORE_GRIM.out.multiqc_report
+        DOHHNH0303_GRIM.out.multiqc_report
     )
 }
 

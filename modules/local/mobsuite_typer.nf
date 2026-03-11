@@ -1,6 +1,6 @@
 process MOBSUITE_TYPER {
     tag "$meta.id"
-    label 'process_medium'
+    label 'process_low'
 
     conda "${moduleDir}/environment.yml"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
@@ -31,13 +31,14 @@ process MOBSUITE_TYPER {
         --infile $fasta_name \\
         $args \\
         --num_threads $task.cpus \\
-        --outdir ${prefix}_mobtyper_results.tsv \\
-        --sample_id $prefix \\
-        --multi
+        --out_file ${prefix}_mobtyper_results.tsv \\
+        --sample_id ${prefix} \\
+        --multi 
+
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        mobsuite: \$(echo \$(mob_recon --version 2>&1) | sed 's/^.*mob_recon //; s/ .*\$//')
+        mobsuite: \$(echo \$(mob_typer--version 2>&1) | sed 's/^.*mob_typer/; s/ .*\$//')
     END_VERSIONS
     """
 
@@ -50,7 +51,7 @@ process MOBSUITE_TYPER {
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        mobsuite: \$(echo \$(mob_recon --version 2>&1) | sed 's/^.*mob_recon //; s/ .*\$//')
+        mobsuite: \$(echo \$(mob_typer --version 2>&1) | sed 's/^.*mob_typer //; s/ .*\$//')
     END_VERSIONS
     """
 }

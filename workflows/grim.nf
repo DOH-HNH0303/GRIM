@@ -4,14 +4,14 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 include { ILLUMINA_AMR_LOCATOR } from '../modules/local/illumina_amr_locator'
-include { PLASMID_CLASSIFICATION } from '../modules/local/plasmid_classification'
+include { MOBSUITE_TYPER } from '../modules/local/mobsuite_typer'
 include { GRIM_GENE_SUMMARY } from '../modules/local/grim_gene_summary'
 include { RESOLVE_PHOENIX_FILES } from '../modules/local/resolve_phoenix_files'
 include { MULTIQC             } from '../modules/nf-core/multiqc/main'
 include { paramsSummaryMap    } from 'plugin/nf-schema'
 include { paramsSummaryMultiqc} from '../subworkflows/nf-core/utils_nfcore_pipeline'
 include { softwareVersionsToYAML } from '../subworkflows/nf-core/utils_nfcore_pipeline'
-include { methodsDescriptionText } from '../subworkflows/local/utils_nfcore_grim_pipeline'
+include { methodsDescriptionText } from '../subworkflows/local/utils_GRIM_pipeline'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -70,27 +70,26 @@ workflow GRIM {
     ch_versions = ch_versions.mix(ILLUMINA_AMR_LOCATOR.out.versions.first())
 
     //
-    // MODULE: Classify contigs as chromosome/plasmid using MOB-suite
+    // MODULE: Type plasmids and MGEs using MOB-suite typer
     // Extract ONT genome from phoenix_files channel
     //
     ch_ont_genomes = ch_phoenix_files.map { meta, _gamma, _amrfinder, _phoenix_asm, ont ->
         tuple(meta, ont)
     }
     
-    PLASMID_CLASSIFICATION (
+    MOBSUITE_TYPER (
         ch_ont_genomes
     )
-    ch_versions = ch_versions.mix(PLASMID_CLASSIFICATION.out.versions.first())
+    ch_versions = ch_versions.mix(MOBSUITE_TYPER.out.versions.first())
 
     //
     // MODULE: Generate per-gene summary CSV with location and plasmid information
-    // Combine outputs from PHOENIX_AMR_LOCATOR and PLASMID_CLASSIFICATION
+    // Combine outputs from ILLUMINA_AMR_LOCATOR and MOBSUITE_TYPER
     //
     ch_summary_input = ILLUMINA_AMR_LOCATOR.out.mappings
-        .join(PLASMID_CLASSIFICATION.out.classification)
-        .join(PLASMID_CLASSIFICATION.out.replicons)
-        .map { meta, mappings, classification, replicons ->
-            tuple(meta, mappings, classification, replicons)
+        .join(MOBSUITE_TYPER.out.mobtyper_results)
+        .map { meta, mappings, mobtyper_results ->
+            tuple(meta, mappings, mobtyper_results)
         }
     
     GRIM_GENE_SUMMARY (
@@ -158,8 +157,7 @@ workflow GRIM {
     emit:
     gene_mappings         = ILLUMINA_AMR_LOCATOR.out.mappings        // channel: [ meta, gene_mappings.tsv ]
     unmapped_genes        = ILLUMINA_AMR_LOCATOR.out.unmapped        // channel: [ meta, unmapped_genes.txt ]
-    contig_classification = PLASMID_CLASSIFICATION.out.classification // channel: [ meta, contig_classification.tsv ]
-    plasmid_replicons     = PLASMID_CLASSIFICATION.out.replicons    // channel: [ meta, plasmid_replicons.tsv ]
+    mobtyper_results      = MOBSUITE_TYPER.out.mobtyper_results      // channel: [ meta, mobtyper_results.tsv ]
     gene_summary          = GRIM_GENE_SUMMARY.out.summary           // channel: [ meta, gene_summary.csv ]
     multiqc_report        = MULTIQC.out.report.toList()             // channel: /path/to/multiqc_report.html
     versions              = ch_versions                              // channel: [ path(versions.yml) ]

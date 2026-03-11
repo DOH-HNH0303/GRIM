@@ -24,7 +24,7 @@ parser.add_argument('--sample_id', required=True, help='Sample ID')
 parser.add_argument('--gamma_ar', required=False, help='GAMMA AR output file (.gamma)')
 parser.add_argument('--amrfinder_report', required=False, help='AMRFinder report file')
 parser.add_argument('--illumina_assembly', required=True, help='illumina assembly FASTA file')
-parser.add_argument('--ont_genome', required=True, help='ONT complete genome FASTA file')
+parser.add_argument('--hybrid_genome', required=True, help='ONT-hybrid complete genome FASTA file')
 parser.add_argument('--output_mappings', required=True, help='Output gene mappings TSV')
 parser.add_argument('--min_identity', type=float, default=95.0, 
                     help='Minimum BLAST identity percentage (default: 95.0)')
@@ -226,13 +226,13 @@ def extract_gene_sequence(illumina_contigs, contig_name, start_pos, end_pos):
     
     return contig_seq[start_pos:end_pos]
 
-def run_blast_search(query_seq, ont_genome_file, temp_dir, gene_name="query"):
+def run_blast_search(query_seq, hybrid_genome_file, temp_dir, gene_name="query"):
     """
     Run BLAST search to find gene location in ONT genome
     
     Args:
         query_seq: Gene sequence to search for
-        ont_genome_file: Path to ONT genome FASTA
+        hybrid_genome_file: Path to ONT genome FASTA
         temp_dir: Temporary directory for BLAST files
         gene_name: Name of gene (for logging)
         
@@ -246,9 +246,9 @@ def run_blast_search(query_seq, ont_genome_file, temp_dir, gene_name="query"):
         f.write(f">{gene_name}\n{query_seq}\n")
     
     # Create BLAST database (only once per temp_dir)
-    db_file = os.path.join(temp_dir, "ont_db")
+    db_file = os.path.join(temp_dir, "hybrid_db")
     if not os.path.exists(f"{db_file}.nhr"):
-        makeblastdb_cmd = f"makeblastdb -in {ont_genome_file} -dbtype nucl -out {db_file} -parse_seqids"
+        makeblastdb_cmd = f"makeblastdb -in {hybrid_genome_file} -dbtype nucl -out {db_file} -parse_seqids"
         result = subprocess.run(makeblastdb_cmd, shell=True, capture_output=True, text=True)
         if result.returncode != 0:
             print(f"Error creating BLAST database: {result.stderr}", file=sys.stderr)
@@ -283,9 +283,9 @@ def run_blast_search(query_seq, ont_genome_file, temp_dir, gene_name="query"):
                     hsp = alignment.hsps[0]
                     
                     return {
-                        'ont_contig': alignment.title.split()[0].replace('>', ''),
-                        'ont_start': hsp.sbjct_start,
-                        'ont_end': hsp.sbjct_end,
+                        'hybrid_contig': alignment.title.split()[0].replace('>', ''),
+                        'hybrid_start': hsp.sbjct_start,
+                        'hybrid_end': hsp.sbjct_end,
                         'blast_identity': round(hsp.identities / hsp.align_length * 100, 2),
                         'blast_coverage': round(hsp.align_length / blast_record.query_length * 100, 2),
                         'blast_evalue': hsp.expect,
@@ -297,14 +297,14 @@ def run_blast_search(query_seq, ont_genome_file, temp_dir, gene_name="query"):
     
     return None
 
-def map_amr_genes_to_ont(all_genes, illumina_contigs, ont_genome_file, sample_id, min_identity=95.0, min_coverage=90.0):
+def map_amr_genes_to_ont(all_genes, illumina_contigs, hybrid_genome_file, sample_id, min_identity=95.0, min_coverage=90.0):
     """
     Map AMR genes from Phoenix assembly to ONT complete genome using BLAST
     
     Args:
         all_genes: List of gene dictionaries (from GAMMA and AMRFinder)
         illumina_contigs: Dictionary of Phoenix assembly contigs
-        ont_genome_file: Path to ONT genome FASTA
+        hybrid_genome_file: Path to ONT genome FASTA
         min_identity: Minimum BLAST identity percentage
         min_coverage: Minimum BLAST coverage percentage
         
@@ -345,9 +345,9 @@ def map_amr_genes_to_ont(all_genes, illumina_contigs, ont_genome_file, sample_id
                 # Create entry for unmapped gene
                 mapped_gene = gene.copy()
                 mapped_gene.update({
-                    'ont_contig': None,
-                    'ont_start': None,
-                    'ont_end': None,
+                    'hybrid_contig': None,
+                    'hybrid_start': None,
+                    'hybrid_end': None,
                     'blast_identity': None,
                     'blast_coverage': None,
                     'blast_evalue': None,
@@ -359,19 +359,19 @@ def map_amr_genes_to_ont(all_genes, illumina_contigs, ont_genome_file, sample_id
                 continue
             
             # BLAST against ONT genome
-            blast_result = run_blast_search(gene_seq, ont_genome_file, temp_dir, gene_name)
+            blast_result = run_blast_search(gene_seq, hybrid_genome_file, temp_dir, gene_name)
             
             if blast_result and blast_result['blast_identity'] >= min_identity and blast_result['blast_coverage'] >= min_coverage:
                 # Successfully mapped
-                print(f"  ✓ Mapped to {blast_result['ont_contig']} "
+                print(f"  ✓ Mapped to {blast_result['hybrid_contig']} "
                       f"({blast_result['blast_identity']:.1f}% identity, "
                       f"{blast_result['blast_coverage']:.1f}% coverage)")
                 
                 mapped_gene = gene.copy()
                 mapped_gene.update({
-                    'ont_contig': blast_result['ont_contig'],
-                    'ont_start': blast_result['ont_start'],
-                    'ont_end': blast_result['ont_end'],
+                    'hybrid_contig': blast_result['hybrid_contig'],
+                    'hybrid_start': blast_result['hybrid_start'],
+                    'hybrid_end': blast_result['hybrid_end'],
                     'blast_identity': blast_result['blast_identity'],
                     'blast_coverage': blast_result['blast_coverage'],
                     'blast_evalue': blast_result['blast_evalue'],
@@ -389,9 +389,9 @@ def map_amr_genes_to_ont(all_genes, illumina_contigs, ont_genome_file, sample_id
                 
                 mapped_gene = gene.copy()
                 mapped_gene.update({
-                    'ont_contig': blast_result['ont_contig'],
-                    'ont_start': blast_result['ont_start'],
-                    'ont_end': blast_result['ont_end'],
+                    'hybrid_contig': blast_result['hybrid_contig'],
+                    'hybrid_start': blast_result['hybrid_start'],
+                    'hybrid_end': blast_result['hybrid_end'],
                     'blast_identity': blast_result['blast_identity'],
                     'blast_coverage': blast_result['blast_coverage'],
                     'blast_evalue': blast_result['blast_evalue'],
@@ -407,9 +407,9 @@ def map_amr_genes_to_ont(all_genes, illumina_contigs, ont_genome_file, sample_id
                 
                 mapped_gene = gene.copy()
                 mapped_gene.update({
-                    'ont_contig': None,
-                    'ont_start': None,
-                    'ont_end': None,
+                    'hybrid_contig': None,
+                    'hybrid_start': None,
+                    'hybrid_end': None,
                     'blast_identity': None,
                     'blast_coverage': None,
                     'blast_evalue': None,
@@ -471,15 +471,15 @@ def main():
     illumina_contigs = get_contig_info(args.illumina_assembly)
     print(f"  Illumina assembly contigs: {len(illumina_contigs)}")
     
-    ont_contigs = get_contig_info(args.ont_genome)
-    print(f"  ONT genome contigs: {len(ont_contigs)}")
+    hybrid_contigs = get_contig_info(args.hybrid_genome)
+    print(f"  hybrid genome contigs: {len(hybrid_contigs)}")
     
     # Map AMR genes to ONT genome
     print(f"\n[4/5] Mapping AMR genes to ONT genome (min_identity={args.min_identity}%, min_coverage={args.min_coverage}%)...")
     mapped_genes = map_amr_genes_to_ont(
         all_genes, 
         illumina_contigs, 
-        args.ont_genome,
+        args.hybrid_genome,
         args.sample_id,
         args.min_identity,
         args.min_coverage
@@ -493,7 +493,7 @@ def main():
     column_order = [
         'gene_name', 'gene_id', 'source', 'category', 'is_beta_lactam',
         'illumina_contig', 'illumina_start', 'illumina_end',
-        'ont_contig', 'ont_start', 'ont_end',
+        'hybrid_contig', 'hybrid_start', 'hybrid_end',
         'blast_identity', 'blast_coverage', 'blast_evalue', 'blast_bitscore',
         'mapping_status', 'mapping_failure_reason'
     ]
