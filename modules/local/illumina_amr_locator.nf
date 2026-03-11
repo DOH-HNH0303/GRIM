@@ -12,7 +12,7 @@ process ILLUMINA_AMR_LOCATOR {
 
     output:
     tuple val(meta), path("${prefix}_gene_mappings.tsv"), emit: mappings
-    tuple val(meta), path("${prefix}_unmapped_genes.txt"), emit: unmapped
+    tuple val(meta), path("${prefix}_unmapped_genes.tsv"), emit: unmapped
     path "versions.yml", emit: versions
 
     when:
@@ -29,6 +29,7 @@ process ILLUMINA_AMR_LOCATOR {
         --illumina_assembly ${illumina_assembly_fasta} \\
         --hybrid_genome ${ont_complete_genome} \\
         --output_mappings ${prefix}_gene_mappings.tsv \\
+        --unmapped_tsv ${prefix}_unmapped_genes.tsv \\
         # --output_unmapped ${prefix}_unmapped_genes.txt \\
         # --threads ${task.cpus} \\
         $args

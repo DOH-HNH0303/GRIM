@@ -30,6 +30,8 @@ parser.add_argument('--min_identity', type=float, default=95.0,
                     help='Minimum BLAST identity percentage (default: 95.0)')
 parser.add_argument('--min_coverage', type=float, default=90.0,
                     help='Minimum BLAST coverage percentage (default: 90.0)')
+parser.add_argument('--unmapped_tsv', required=False,
+                    help='TSV file to save unmapped genes information')
 
 
 
@@ -427,7 +429,7 @@ def main():
     # Require at least one 
     if not args.gamma_ar and not args.amrfinder_report: 
         parser.error("You must provide at least one of --gamma_ar or --amrfinder_report")
-    
+
     print(f"=" * 80)
     print(f"Illumina AMR Locator (Refactored)")
     print(f"Sample: {args.sample_id}")
@@ -509,6 +511,17 @@ def main():
     
     results_df.to_csv(args.output_mappings, sep='\t', index=False)
     print(f"  ✓ Saved mappings to: {args.output_mappings}")
+    
+    # Save unmapped genes to TSV if requested
+    if args.unmapped_tsv:
+        unmapped_df = results_df[results_df['mapping_status'] != 'mapped'].copy()
+        if not unmapped_df.empty:
+            unmapped_df.to_csv(args.unmapped_tsv, sep='\t', index=False)
+            print(f"  ✓ Saved unmapped genes to: {args.unmapped_tsv}")
+        else:
+            # Create empty file with header if no unmapped genes
+            unmapped_df.to_csv(args.unmapped_tsv, sep='\t', index=False)
+            print(f"  ✓ No unmapped genes found, created empty file: {args.unmapped_tsv}")
     
     # Print summary
     print(f"\n" + "=" * 80)
