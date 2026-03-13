@@ -70,13 +70,16 @@ workflow GRIM {
     ch_versions = ch_versions.mix(ILLUMINA_AMR_LOCATOR.out.versions.first())
 
     //
-    // MODULE: Type plasmids and MGEs using MOB-suite typer
+    // MODULE: Classify plasmids and chromosomes using MOB-suite recon
     // Extract ONT genome from phoenix_files channel
     //
     ch_ont_genomes = ch_phoenix_files.map { meta, _gamma, _amrfinder, _phoenix_asm, ont ->
         tuple(meta, ont)
     }
     
+    //
+    // MODULE: Type plasmids and MGEs using MOB-suite typer
+    //
     MOBSUITE_TYPER (
         ch_ont_genomes
     )
@@ -88,9 +91,6 @@ workflow GRIM {
     //
     ch_summary_input = ILLUMINA_AMR_LOCATOR.out.mappings
         .join(MOBSUITE_TYPER.out.mobtyper_results)
-        .map { meta, mappings, mobtyper_results ->
-            tuple(meta, mappings, mobtyper_results)
-        }
     
     GRIM_GENE_SUMMARY (
         ch_summary_input

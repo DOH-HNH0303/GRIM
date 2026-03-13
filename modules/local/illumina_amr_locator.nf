@@ -27,7 +27,7 @@ process ILLUMINA_AMR_LOCATOR {
         --gamma_ar ${gamma_ar_file} \\
         --amrfinder_report ${amrfinder_report} \\
         --illumina_assembly ${illumina_assembly_fasta} \\
-        --hybrid_genome ${ont_complete_genome} \\
+        --ont_genome ${ont_complete_genome} \\
         --output_mappings ${prefix}_gene_mappings.tsv \\
         --unmapped_tsv ${prefix}_unmapped_genes.tsv \\
         # --output_unmapped ${prefix}_unmapped_genes.txt \\
