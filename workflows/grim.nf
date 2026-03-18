@@ -5,6 +5,9 @@
 */
 include { ILLUMINA_AMR_LOCATOR } from '../modules/local/illumina_amr_locator'
 include { MOBSUITE_TYPER } from '../modules/local/mobsuite_typer'
+include { PLATON } from '../modules/local/platon'
+include { IDENTIFY_NON_MOBILIZABLE_CONTIGS } from '../modules/local/identify_non_mobilizable_contigs'
+include { EXTRACT_NON_MOBILIZABLE_CONTIGS } from '../modules/local/extract_non_mobilizable_contigs'
 include { GRIM_GENE_SUMMARY } from '../modules/local/grim_gene_summary'
 include { RESOLVE_PHOENIX_FILES } from '../modules/local/resolve_phoenix_files'
 include { MULTIQC             } from '../modules/nf-core/multiqc/main'
@@ -86,11 +89,40 @@ workflow GRIM {
     ch_versions = ch_versions.mix(MOBSUITE_TYPER.out.versions.first())
 
     //
+    // MODULE: Run Platon on ONT genomes to classify plasmids and chromosomes
+    //
+    PLATON (
+        ch_ont_genomes
+    )
+    ch_versions = ch_versions.mix(PLATON.out.versions.first())
+
+    //
+    // MODULE: Identify non-mobilizable contigs from MOB-typer and Platon results
+    //
+    ch_mobtyper_for_identification = MOBSUITE_TYPER.out.mobtyper_results
+        .join(PLATON.out.tsv)
+    
+    IDENTIFY_NON_MOBILIZABLE_CONTIGS (
+        ch_mobtyper_for_identification
+    )
+
+    //
+    // MODULE: Extract non-mobilizable contigs from ONT genome FASTA
+    //
+    ch_extract_input = ch_ont_genomes
+        .join(IDENTIFY_NON_MOBILIZABLE_CONTIGS.out.non_mobilizable_list)
+    
+    EXTRACT_NON_MOBILIZABLE_CONTIGS (
+        ch_extract_input
+    )
+
+    //
     // MODULE: Generate per-gene summary CSV with location and plasmid information
-    // Combine outputs from ILLUMINA_AMR_LOCATOR and MOBSUITE_TYPER
+    // Combine outputs from ILLUMINA_AMR_LOCATOR, MOBSUITE_TYPER, and PLATON
     //
     ch_summary_input = ILLUMINA_AMR_LOCATOR.out.mappings
         .join(MOBSUITE_TYPER.out.mobtyper_results)
+        .join(PLATON.out.tsv)
     
     GRIM_GENE_SUMMARY (
         ch_summary_input

@@ -9,7 +9,7 @@ process GRIM_GENE_SUMMARY {
         'public.ecr.aws/o8h2f0o1/illumina_amr_locator:1.0.0' }"
 
     input:
-    tuple val(meta), path(gene_mappings), path(mobtyper_results)
+    tuple val(meta), path(gene_mappings), path(mobtyper_results), path(platon_results)
 
     output:
     tuple val(meta), path("${prefix}_gene_summary.csv"), emit: summary
@@ -26,6 +26,7 @@ process GRIM_GENE_SUMMARY {
         --sample_id ${meta.id} \\
         --gene_mappings ${gene_mappings} \\
         --mobtyper_results ${mobtyper_results} \\
+        --platon_results ${platon_results} \\
         --output_summary ${prefix}_gene_summary.csv \\
         $args
 

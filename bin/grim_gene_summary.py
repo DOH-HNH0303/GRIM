@@ -18,6 +18,19 @@ def id_cleanup(col):
     return col
 
 
+def ge_type(col):
+    # (Conjugative, Mobilizable, Non-mobilizable)
+    if col == "conjugative":
+        return "plasmid"
+    elif col == "mobilizable":
+        return "plasmid"
+    elif col == "non-mobilizable":
+        # Check to see if GE is chromosome-like
+        pass
+    else:
+        return "ambiguous"
+
+
 def parse_args():
     """Parse command line arguments"""
     parser = argparse.ArgumentParser(
@@ -53,7 +66,7 @@ def load_mobtyper_results(mobtyper_file):
         
         df = pd.read_csv(mobtyper_file, sep='\t')
         df['sample_id'] = df['sample_id'].apply(lambda x: id_cleanup(x))
-        
+
         print(f"  Loaded {len(df)} MOB-typer results")
         return df
     except Exception as e:
@@ -92,6 +105,8 @@ def generate_gene_summary(sample_id, gene_mappings_df, mobtyper_df):
         on='ont_contig',
         how='left'
     )
+
+
     print(summary_df)
 
 
