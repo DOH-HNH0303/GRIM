@@ -91,8 +91,14 @@ workflow GRIM {
     //
     // MODULE: Run Platon on ONT genomes to classify plasmids and chromosomes
     //
+    // Prepare platon database channel - collect all files from the database directory
+    ch_platon_db = params.platon_db 
+        ? Channel.fromPath("${params.platon_db}/**", checkIfExists: false).collect()
+        : Channel.value(file('NO_DB_FILE'))
+    
     PLATON (
-        ch_ont_genomes
+        ch_ont_genomes,
+        ch_platon_db
     )
     ch_versions = ch_versions.mix(PLATON.out.versions.first())
 

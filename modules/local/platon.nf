@@ -9,6 +9,7 @@ process PLATON {
 
     input:
     tuple val(meta), path(fasta)
+    path db, stageAs: 'platon_db/*'
 
     output:
     tuple val(meta), path("${prefix}.tsv")              , emit: tsv
@@ -25,7 +26,8 @@ process PLATON {
     prefix = task.ext.prefix ?: "${meta.id}"
     def is_compressed = fasta.getName().endsWith(".gz") ? true : false
     def fasta_name = fasta.getName().replace(".gz", "")
-    def db_arg = params.platon_db ? "--db ${params.platon_db}" : ''
+    // Use staged database directory if provided, otherwise let Platon download
+    def db_arg = db.name != 'NO_DB_FILE' ? "--db platon_db" : ''
     """
     # Check if FASTA is empty or has no sequences
     if [ ! -s ${fasta} ]; then
@@ -44,12 +46,14 @@ process PLATON {
         # Platon will use database from params.platon_db or download automatically
         platon \\
             --output . \\
+            --mode sensitivity \\
             ${db_arg} \\
             --prefix ${prefix} \\
             --threads ${task.cpus} \\
             ${args} \\
             \${FASTA_INPUT} || {
                 echo "Platon failed, creating empty results" >&2
+                rm -f ${prefix}.tsv
                 touch ${prefix}.tsv
                 echo "ID\\t# Chromosome\\tLength\\tCoverage\\t# ORFs\\tRDS\\tCircular\\tInc Type(s)\\t# Replication\\t# Mobilization\\t# ORFs on Conjugation\\t# Conjugation\\tAnnotation File" > ${prefix}.tsv
             }
