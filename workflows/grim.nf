@@ -6,6 +6,8 @@
 include { ILLUMINA_AMR_LOCATOR } from '../modules/local/illumina_amr_locator'
 include { MOBSUITE_TYPER } from '../modules/local/mobsuite_typer'
 include { PLATON } from '../modules/local/platon'
+include { BANDAGE } from '../modules/local/bandage'
+include { GFATOOLS_COUNT_EDGES } from '../modules/local/gfatools_count_edges'
 include { IDENTIFY_NON_MOBILIZABLE_CONTIGS } from '../modules/local/identify_non_mobilizable_contigs'
 include { EXTRACT_NON_MOBILIZABLE_CONTIGS } from '../modules/local/extract_non_mobilizable_contigs'
 include { GRIM_GENE_SUMMARY } from '../modules/local/grim_gene_summary'
@@ -33,16 +35,18 @@ workflow GRIM {
 
     //
     // Parse samplesheet and separate into two formats
-    // Format 1: sample,gamma_ar_file,amrfinder_report,phoenix_assembly_fasta,ont_complete_genome
-    // Format 2: sample,phoenix_outdir,ont_complete_genome
+    // Format 1: sample,gamma_ar_file,amrfinder_report,phoenix_assembly_fasta,ont_complete_genome[,hybrid_assembly_gfa]
+    //           - hybrid_assembly_gfa (optional): GFA file from hybrid assembly (Illumina + ONT) for Bandage visualization
+    // Format 2: sample,phoenix_outdir,ont_complete_genome (no GFA - Bandage will not run)
     //
     ch_samplesheet//.brach_samplesheet
         .branch { row ->
             individual_files: row[0] == 'individual_files'
-                return [row[1], row[2], row[3], row[4], row[5]]
+                // Format: [meta, gamma, amrfinder, assembly, ont, gfa (optional)]
+                return [row[1], row[2], row[3], row[4], row[5], row[6]]
             phoenix_outdir: row[0] == 'phoenix_outdir'
-                return [row[1], row[2], row[3]]  // ← Correct indices!
-                // Format 2: [meta, phoenix_outdir, ont_complete_genome]
+                // Format: [meta, phoenix_dir, ont]
+                return [row[1], row[2], row[3]]
             invalid: true
                 error "Invalid samplesheet format. Could not determine format from row: ${row}"
         }
@@ -58,17 +62,30 @@ workflow GRIM {
 
     //
     // Combine both input formats into a single channel
+    // phoenix_outdir results have 5 elements [meta, gamma, amr, assembly, ont]
+    // Need to add null GFA placeholder to match individual_files format (6 elements)
     //
+    ch_resolved_with_gfa = RESOLVE_PHOENIX_FILES.out.resolved_files
+        .map { meta, gamma, amr, assembly, ont ->
+            tuple(meta, gamma, amr, assembly, ont, null)
+        }
+
     ch_phoenix_files = ch_input_formats.individual_files
-        .mix(RESOLVE_PHOENIX_FILES.out.resolved_files)
+        .mix(ch_resolved_with_gfa)
 
     //
     // MODULE: Process each sample using existing Phoenix AMR indexing files
     // This leverages the pre-computed GAMMA and AMRFinder results
     // No need to re-parse Phoenix summary files or re-run BLAST!
+    // Drop the GFA element (6th element) before passing to ILLUMINA_AMR_LOCATOR
     //
+    ch_illumina_amr_input = ch_phoenix_files
+        .map { meta, gamma, amr, assembly, ont, gfa ->
+            tuple(meta, gamma, amr, assembly, ont)
+        }
+    
     ILLUMINA_AMR_LOCATOR (
-        ch_phoenix_files
+        ch_illumina_amr_input
     )
     ch_versions = ch_versions.mix(ILLUMINA_AMR_LOCATOR.out.versions.first())
 
@@ -76,9 +93,21 @@ workflow GRIM {
     // MODULE: Classify plasmids and chromosomes using MOB-suite recon
     // Extract ONT genome from phoenix_files channel
     //
-    ch_ont_genomes = ch_phoenix_files.map { meta, _gamma, _amrfinder, _phoenix_asm, ont ->
+    ch_ont_genomes = ch_phoenix_files.map { meta, _gamma, _amrfinder, _phoenix_asm, ont, _gfa ->
         tuple(meta, ont)
     }
+    
+    //
+    // Extract GFA files for Bandage (only samples with non-empty GFA files)
+    //
+    ch_gfa_files = ch_phoenix_files
+        .map { meta, _gamma, _amrfinder, _phoenix_asm, _ont, gfa ->
+            tuple(meta, gfa)
+        }
+        .filter { meta, gfa -> 
+            // Filter out null and empty files (created by touch in RESOLVE_PHOENIX_FILES)
+            gfa != null && gfa.size() > 0
+        }
     
     //
     // MODULE: Type plasmids and MGEs using MOB-suite typer
@@ -103,11 +132,30 @@ workflow GRIM {
     ch_versions = ch_versions.mix(PLATON.out.versions.first())
 
     //
+    // MODULE: Run Bandage on GFA files (optional - only for samples with GFA files)
+    //
+    BANDAGE (
+        ch_gfa_files
+    )
+    ch_versions = ch_versions.mix(BANDAGE.out.versions.first())
+
+
+    //
+    // MODULE: Count number of edges in assembly with gfatools
+    //
+       GFATOOLS_COUNT_EDGES(
+        ch_gfa_files  // Channel with [meta, gfa_file]
+    )
+
+    //
     // MODULE: Identify non-mobilizable contigs from MOB-typer and Platon results
     //
     ch_mobtyper_for_identification = MOBSUITE_TYPER.out.mobtyper_results
-        .join(PLATON.out.tsv)
+    .join(PLATON.out.tsv, remainder: true)
+    .join(GFATOOLS_COUNT_EDGES.out.edge_counts, remainder: true)
     
+
+
     IDENTIFY_NON_MOBILIZABLE_CONTIGS (
         ch_mobtyper_for_identification
     )
