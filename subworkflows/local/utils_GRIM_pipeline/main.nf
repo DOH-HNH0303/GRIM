@@ -259,8 +259,8 @@ def create_grim_channels(LinkedHashMap row) {
     def array = []
     
     if (row.containsKey('gamma_ar_file') && row.gamma_ar_file) {
-        // Format 1: Individual files (5 columns)
-        // sample,gamma_ar_file,amrfinder_report,phoenix_assembly_fasta,ont_complete_genome
+        // Format 1: Individual files (5-6 columns)
+        // sample,gamma_ar_file,amrfinder_report,phoenix_assembly_fasta,ont_complete_genome[,hybrid_assembly_gfa]
         
         // Check files exist (Phoenix approach - direct file() calls)
         if (!file(row.gamma_ar_file).exists()) {
@@ -276,6 +276,24 @@ def create_grim_channels(LinkedHashMap row) {
             exit 1, "ERROR: Please check input samplesheet -> ONT genome does not exist!\n${row.ont_complete_genome}"
         }
         
+        // Handle optional hybrid_assembly_gfa file (6th column)
+        def gfa_file = null
+        if (row.containsKey('hybrid_assembly_gfa') && row.hybrid_assembly_gfa && row.hybrid_assembly_gfa.trim() != '') {
+            // GFA file is optional and may be empty
+            // Skip existence check for S3/GS URLs - Nextflow will handle staging
+            if (!row.hybrid_assembly_gfa.startsWith('s3://') && !row.hybrid_assembly_gfa.startsWith('gs://') && !file(row.hybrid_assembly_gfa).exists()) {
+                exit 1, "ERROR: Please check input samplesheet -> GFA file specified but does not exist!\n${row.hybrid_assembly_gfa}"
+            }
+            gfa_file = file(row.hybrid_assembly_gfa)
+        }
+        // if (row.containsKey('hybrid_assembly_gfa') && row.hybrid_assembly_gfa && row.hybrid_assembly_gfa.trim() != '') {
+        //     // GFA file is optional and may be empty
+        //     if (!file(row.hybrid_assembly_gfa).exists()) {
+        //         exit 1, "ERROR: Please check input samplesheet -> GFA file specified but does not exist!\n${row.hybrid_assembly_gfa}"
+        //     }
+        //     gfa_file = file(row.hybrid_assembly_gfa)
+        // }
+        
         // Create channel data - individual files format
         array = [
             'individual_files',
@@ -283,12 +301,13 @@ def create_grim_channels(LinkedHashMap row) {
             file(row.gamma_ar_file),
             file(row.amrfinder_report), 
             file(row.phoenix_assembly_fasta),
-            file(row.ont_complete_genome)
+            file(row.ont_complete_genome),
+            gfa_file
         ]
         
     } else if (row.containsKey('phoenix_outdir') && row.phoenix_outdir) {
-        // Format 2: Phoenix output directory (3 columns)
-        // sample,phoenix_outdir,ont_complete_genome
+        // Format 2: Phoenix output directory (3-4 columns)
+        // sample,phoenix_outdir,ont_complete_genome[,gfa]
         
         // Check directory and ONT file exist (Phoenix approach)
         // For S3 URLs, skip existence check as Nextflow will handle staging
@@ -299,12 +318,31 @@ def create_grim_channels(LinkedHashMap row) {
             exit 1, "ERROR: Please check input samplesheet -> ONT genome does not exist!\n${row.ont_complete_genome}"
         }
         
+        // Handle optional GFA file (4th column)
+        def gfa_file = null
+        // if (row.containsKey('gfa') && row.gfa && row.gfa.trim() != '') {
+        //     // GFA file is optional and may be empty
+        //     if (!file(row.gfa).exists()) {
+        //         exit 1, "ERROR: Please check input samplesheet -> GFA file specified but does not exist!\n${row.gfa}"
+        //     }
+        //     gfa_file = file(row.gfa)
+        // }
+        if (row.containsKey('gfa') && row.gfa && row.gfa.trim() != '') {
+        // GFA file is optional and may be empty
+        // Skip existence check for S3/GS URLs - Nextflow will handle staging
+            if (!row.gfa.startsWith('s3://') && !row.gfa.startsWith('gs://') && !file(row.gfa).exists()) {
+                exit 1, "ERROR: Please check input samplesheet -> GFA file specified but does not exist!\n${row.gfa}"
+            }
+            gfa_file = file(row.gfa)
+        }
+        
         // Create channel data - phoenix directory format
         array = [
             'phoenix_outdir',
             meta,
             file(row.phoenix_outdir),     // Let Nextflow handle S3 staging!
-            file(row.ont_complete_genome)
+            file(row.ont_complete_genome),
+            gfa_file                       // Optional GFA file (null if not provided)
         ]
         
     } else {

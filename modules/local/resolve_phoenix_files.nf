@@ -9,10 +9,10 @@ process RESOLVE_PHOENIX_FILES {
 
 
     input:
-    tuple val(meta), path(phoenix_run_dir), path(ont_genome)
+    tuple val(meta), path(phoenix_run_dir), path(ont_genome), path(gfa_file)
 
     output:
-    tuple val(meta), path("gamma_ar_file"), path("amrfinder_report"), path("phoenix_assembly"), path(ont_genome), emit: resolved_files
+    tuple val(meta), path("gamma_ar_file"), path("amrfinder_report"), path("phoenix_assembly"), path(ont_genome), path(gfa_file), emit: resolved_files
     path "versions.yml", emit: versions
 
     when:

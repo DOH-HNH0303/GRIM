@@ -32,6 +32,10 @@
             "ont_complete_genome": {
                 "type": "string",
                 "errorMessage": "ONT complete genome FASTA file path"
+            },
+            "hybrid_assembly_gfa": {
+                "type": "string",
+                "errorMessage": "Hybrid assembly GFA file path (optional, for Bandage visualization)"
             }
         },
         "required": ["sample"],

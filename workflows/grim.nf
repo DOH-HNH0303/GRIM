@@ -39,14 +39,14 @@ workflow GRIM {
     //           - hybrid_assembly_gfa (optional): GFA file from hybrid assembly (Illumina + ONT) for Bandage visualization
     // Format 2: sample,phoenix_outdir,ont_complete_genome (no GFA - Bandage will not run)
     //
-    ch_samplesheet//.brach_samplesheet
+    ch_samplesheet
         .branch { row ->
             individual_files: row[0] == 'individual_files'
                 // Format: [meta, gamma, amrfinder, assembly, ont, gfa (optional)]
                 return [row[1], row[2], row[3], row[4], row[5], row[6]]
             phoenix_outdir: row[0] == 'phoenix_outdir'
-                // Format: [meta, phoenix_dir, ont]
-                return [row[1], row[2], row[3]]
+                // Format: [meta, phoenix_dir, ont, gfa (optional)]
+                return [row[1], row[2], row[3], row[4]]
             invalid: true
                 error "Invalid samplesheet format. Could not determine format from row: ${row}"
         }
@@ -62,16 +62,11 @@ workflow GRIM {
 
     //
     // Combine both input formats into a single channel
-    // phoenix_outdir results have 5 elements [meta, gamma, amr, assembly, ont]
-    // Need to add null GFA placeholder to match individual_files format (6 elements)
+    // Both formats now have 6 elements: [meta, gamma, amr, assembly, ont, gfa]
+    // GFA may be null for samples without GFA files
     //
-    ch_resolved_with_gfa = RESOLVE_PHOENIX_FILES.out.resolved_files
-        .map { meta, gamma, amr, assembly, ont ->
-            tuple(meta, gamma, amr, assembly, ont, null)
-        }
-
     ch_phoenix_files = ch_input_formats.individual_files
-        .mix(ch_resolved_with_gfa)
+        .mix(RESOLVE_PHOENIX_FILES.out.resolved_files)
 
     //
     // MODULE: Process each sample using existing Phoenix AMR indexing files
