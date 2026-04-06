@@ -53,10 +53,33 @@ workflow GRIM {
         .set { ch_input_formats }
 
     //
-    // For phoenix_outdir format, resolve file paths
+    // For phoenix_outdir format, construct file paths for Nextflow to stage
+    // Transform [meta, phoenix_dir, ont, gfa] to [meta, summary, gamma, amr, assembly, ont, gfa]
     //
+    ch_phoenix_expanded = ch_input_formats.phoenix_outdir
+        .map { meta, phoenix_dir, ont, gfa ->
+            def sample_id = meta.id
+            def phoenix_summary = file("${phoenix_dir}/Phoenix_Summary.tsv")
+            // Phoenix files are in subdirectories - use glob patterns to find them
+            def gamma_pattern = "${phoenix_dir}/${sample_id}/*/${sample_id}_ResGANNCBI_*_srst2.gamma"
+            def amr_pattern = "${phoenix_dir}/${sample_id}/*/${sample_id}_all_genes.tsv"
+            def assembly_pattern = "${phoenix_dir}/${sample_id}/*/${sample_id}.scaffolds.fa.gz"
+            
+            // Find the actual files
+            def gamma_files = file(gamma_pattern)
+            def amr_files = file(amr_pattern)
+            def assembly_files = file(assembly_pattern)
+            
+            // Take first match for each
+            def gamma_file = gamma_files instanceof List ? gamma_files[0] : gamma_files
+            def amr_file = amr_files instanceof List ? amr_files[0] : amr_files
+            def assembly_file = assembly_files instanceof List ? assembly_files[0] : assembly_files
+            
+            return [meta, phoenix_summary, gamma_file, amr_file, assembly_file, file(ont), gfa ? file(gfa) : file('NO_FILE')]
+        }
+
     RESOLVE_PHOENIX_FILES (
-        ch_input_formats.phoenix_outdir
+        ch_phoenix_expanded
     )
     ch_versions = ch_versions.mix(RESOLVE_PHOENIX_FILES.out.versions)
 

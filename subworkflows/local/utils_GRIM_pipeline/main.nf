@@ -263,16 +263,17 @@ def create_grim_channels(LinkedHashMap row) {
         // sample,gamma_ar_file,amrfinder_report,phoenix_assembly_fasta,ont_complete_genome[,hybrid_assembly_gfa]
         
         // Check files exist (Phoenix approach - direct file() calls)
-        if (!file(row.gamma_ar_file).exists()) {
+        // Skip S3 existence checks - Nextflow will handle staging
+        if (!row.gamma_ar_file.startsWith('s3://') && !file(row.gamma_ar_file).exists()) {
             exit 1, "ERROR: Please check input samplesheet -> GAMMA file does not exist!\n${row.gamma_ar_file}"
         }
-        if (!file(row.amrfinder_report).exists()) {
+        if (!row.amrfinder_report.startsWith('s3://') && !file(row.amrfinder_report).exists()) {
             exit 1, "ERROR: Please check input samplesheet -> AMRFinder report does not exist!\n${row.amrfinder_report}"
         }
-        if (!file(row.phoenix_assembly_fasta).exists()) {
+        if (!row.phoenix_assembly_fasta.startsWith('s3://') && !file(row.phoenix_assembly_fasta).exists()) {
             exit 1, "ERROR: Please check input samplesheet -> Phoenix assembly does not exist!\n${row.phoenix_assembly_fasta}"
         }
-        if (!file(row.ont_complete_genome).exists()) {
+        if (!row.ont_complete_genome.startsWith('s3://') && !file(row.ont_complete_genome).exists()) {
             exit 1, "ERROR: Please check input samplesheet -> ONT genome does not exist!\n${row.ont_complete_genome}"
         }
         
@@ -295,13 +296,19 @@ def create_grim_channels(LinkedHashMap row) {
         // }
         
         // Create channel data - individual files format
+        // For S3 paths, pass as string to avoid permission check during channel creation
+        def gamma_path = row.gamma_ar_file.startsWith('s3://') ? row.gamma_ar_file : file(row.gamma_ar_file)
+        def amrfinder_path = row.amrfinder_report.startsWith('s3://') ? row.amrfinder_report : file(row.amrfinder_report)
+        def assembly_path = row.phoenix_assembly_fasta.startsWith('s3://') ? row.phoenix_assembly_fasta : file(row.phoenix_assembly_fasta)
+        def ont_path = row.ont_complete_genome.startsWith('s3://') ? row.ont_complete_genome : file(row.ont_complete_genome)
+        
         array = [
             'individual_files',
             meta,
-            file(row.gamma_ar_file),
-            file(row.amrfinder_report), 
-            file(row.phoenix_assembly_fasta),
-            file(row.ont_complete_genome),
+            gamma_path,
+            amrfinder_path,
+            assembly_path,
+            ont_path,
             gfa_file
         ]
         
@@ -314,7 +321,7 @@ def create_grim_channels(LinkedHashMap row) {
         if (!row.phoenix_outdir.startsWith('s3://') && !file(row.phoenix_outdir).exists()) {
             exit 1, "ERROR: Please check input samplesheet -> Phoenix output directory does not exist!\n${row.phoenix_outdir}"
         }
-        if (!file(row.ont_complete_genome).exists()) {
+        if (!row.ont_complete_genome.startsWith('s3://') && !file(row.ont_complete_genome).exists()) {
             exit 1, "ERROR: Please check input samplesheet -> ONT genome does not exist!\n${row.ont_complete_genome}"
         }
         
@@ -337,11 +344,16 @@ def create_grim_channels(LinkedHashMap row) {
         }
         
         // Create channel data - phoenix directory format
+        // For S3 paths, pass as string to avoid permission check during channel creation
+        // Nextflow will handle S3 staging when the process executes
+        def phoenix_path = row.phoenix_outdir.startsWith('s3://') ? row.phoenix_outdir : file(row.phoenix_outdir)
+        def ont_path = row.ont_complete_genome.startsWith('s3://') ? row.ont_complete_genome : file(row.ont_complete_genome)
+        
         array = [
             'phoenix_outdir',
             meta,
-            file(row.phoenix_outdir),     // Let Nextflow handle S3 staging!
-            file(row.ont_complete_genome),
+            phoenix_path,
+            ont_path,
             gfa_file                       // Optional GFA file (null if not provided)
         ]
         

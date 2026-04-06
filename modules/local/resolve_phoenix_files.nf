@@ -9,10 +9,10 @@ process RESOLVE_PHOENIX_FILES {
 
 
     input:
-    tuple val(meta), path(phoenix_run_dir), path(ont_genome), path(gfa_file)
+    tuple val(meta), path(phoenix_summary), path(gamma_file), path(amrfinder_file), path(assembly_file), path(ont_genome), path(gfa_file, stageAs: 'input.gfa')
 
     output:
-    tuple val(meta), path("gamma_ar_file"), path("amrfinder_report"), path("phoenix_assembly"), path(ont_genome), path(gfa_file), emit: resolved_files
+    tuple val(meta), path("gamma_ar_file"), path("amrfinder_report"), path("phoenix_assembly"), path("ont_genome.fasta"), path("assembly.gfa"), emit: resolved_files
     path "versions.yml", emit: versions
 
     when:
@@ -20,126 +20,55 @@ process RESOLVE_PHOENIX_FILES {
 
     script:
     def sample_id = meta.id
+    // Check if gfa_file is empty or placeholder
+    def has_gfa = gfa_file.name != 'input.gfa' || gfa_file.size() > 0
     """
-    echo "DEBUG: Working directory contents:"
-    ls -la .
+    echo "Processing sample: ${sample_id}"
+    echo "Files staged by Nextflow:"
+    ls -lah
 
-    echo "DEBUG: Phoenix run directory variable: ${phoenix_run_dir}"
-    echo "DEBUG: Sample ID: ${sample_id}"
+    # Verify all required input files exist
+    if [ ! -f "${gamma_file}" ]; then
+        echo "ERROR: GAMMA file not found: ${gamma_file}"
+        exit 1
+    fi
 
-    # Determine if we're working with a traditional directory structure or S3 staged files
-    # When S3 directories are staged, Nextflow flattens the directory structure
-    
-    # First, check if we have the traditional nested structure
-    if [ -d "${phoenix_run_dir}" ]; then
-        echo "Found traditional Phoenix directory structure"
-        search_dir="${phoenix_run_dir}"
-        summary_file="${phoenix_run_dir}/Phoenix_Summary.tsv"
-        sample_dir="${phoenix_run_dir}/${sample_id}"
+    if [ ! -f "${amrfinder_file}" ]; then
+        echo "ERROR: AMRFinder file not found: ${amrfinder_file}"
+        exit 1
+    fi
+
+    if [ ! -f "${assembly_file}" ]; then
+        echo "ERROR: Assembly file not found: ${assembly_file}"
+        exit 1
+    fi
+
+    if [ ! -f "${ont_genome}" ]; then
+        echo "ERROR: ONT genome file not found: ${ont_genome}"
+        exit 1
+    fi
+
+    # Create symlinks with standardized names
+    ln -s "${gamma_file}" gamma_ar_file
+    ln -s "${amrfinder_file}" amrfinder_report
+    ln -s "${assembly_file}" phoenix_assembly
+    ln -s "${ont_genome}" ont_genome.fasta
+
+    # Handle GFA file - create placeholder if not provided or empty
+    if ${has_gfa}; then
+        echo "GFA file provided: ${gfa_file}"
+        ln -s "${gfa_file}" assembly.gfa
     else
-        echo "Phoenix directory not found as nested structure, checking for flattened S3 staging"
-        # S3 staging flattens directories - files are staged at the current working directory
-        search_dir="."
-        
-        # Look for Phoenix summary file - try both lowercase and capitalized versions
-        if [ -f "Phoenix_Summary.tsv" ]; then
-            summary_file="Phoenix_Summary.tsv"
-        elif [ -f "Phoenix_Summary.tsv" ]; then
-            summary_file="Phoenix_Summary.tsv"
-        else
-            echo "ERROR: Could not find phoenix_summary.tsv or Phoenix_Summary.tsv"
-            echo "Available files in working directory:"
-            ls -la .
-            exit 1
-        fi
-        
-        # In flattened structure, sample directory is at root level
-        sample_dir="${sample_id}"
+        echo "No GFA file provided, creating empty placeholder"
+        touch assembly.gfa
     fi
-
-    echo "Using search directory: \$search_dir"
-    echo "Using summary file: \$summary_file"
-    echo "Using sample directory: \$sample_dir"
-
-    # Verify Phoenix summary file exists
-    if [ ! -f "\$summary_file" ]; then
-        echo "ERROR: Phoenix summary file not found: \$summary_file"
-        echo "Available files in search directory:"
-        ls -la "\$search_dir"
-        exit 1
-    fi
-
-    # Check if sample directory exists
-    if [ ! -d "\$sample_dir" ]; then
-        echo "ERROR: Could not find sample directory: \$sample_dir"
-        echo "Available directories in search area:"
-        ls -la "\$search_dir"
-        exit 1
-    fi
-
-    # Find GAMMA file (search in sample subdirectories, 2 levels deep)
-    gamma_file=\$(find "\$sample_dir"/*/ -name "${sample_id}_ResGANNCBI_*_srst2.gamma" 2>/dev/null | head -1)
-    if [ -z "\$gamma_file" ]; then
-        echo "ERROR: Could not find GAMMA file for sample ${sample_id}"
-        echo "Searched in: \$sample_dir/*/"
-        echo "Expected pattern: ${sample_id}_ResGANNCBI_*_srst2.gamma"
-        echo "Available GAMMA files in \$sample_dir/:"
-        find "\$sample_dir/" -type f -name "*.gamma" 2>/dev/null || echo "No .gamma files found"
-        echo "Sample directory structure:"
-        ls -la "\$sample_dir/"
-        echo "Subdirectories in sample directory:"
-        find "\$sample_dir/" -type d -mindepth 1 -maxdepth 1 2>/dev/null | while read subdir; do
-            echo "Contents of \$subdir:"
-            ls -la "\$subdir/" 2>/dev/null || echo "  Cannot access \$subdir"
-        done
-        exit 1
-    fi
-    ln -s "\$gamma_file" gamma_ar_file
-
-    # Find AMRFinder report (search in sample subdirectories, 1 level deep)
-    amrfinder_file=\$(find "\$sample_dir"/*/ -name "${sample_id}_all_genes.tsv" 2>/dev/null | head -1)
-    if [ -z "\$amrfinder_file" ]; then
-        echo "ERROR: Could not find AMRFinder report for sample ${sample_id}"
-        echo "Searched in: \$sample_dir/*/"
-        echo "Expected pattern: ${sample_id}_all_genes.tsv"
-        echo "Available TSV files in \$sample_dir/:"
-        find "\$sample_dir/" -type f -name "*.tsv" 2>/dev/null || echo "No .tsv files found"
-        echo "Sample directory structure:"
-        ls -la "\$sample_dir/"
-        echo "Subdirectories in sample directory:"
-        find "\$sample_dir/" -type d -mindepth 1 -maxdepth 1 2>/dev/null | while read subdir; do
-            echo "Contents of \$subdir:"
-            ls -la "\$subdir/" 2>/dev/null || echo "  Cannot access \$subdir"
-        done
-        exit 1
-    fi
-    ln -s "\$amrfinder_file" amrfinder_report
-
-    # Find Phoenix assembly (search in sample subdirectories)
-    assembly_file=\$(find "\$sample_dir"/*/ -name "${sample_id}.scaffolds.fa.gz" 2>/dev/null | head -1)
-    if [ -z "\$assembly_file" ]; then
-        echo "ERROR: Could not find Phoenix assembly for sample ${sample_id}"
-        echo "Searched in: \$sample_dir/*/"
-        echo "Expected patterns: ${sample_id}.scaffolds.fa.gz"
-        echo "Available FASTA files in \$sample_dir/:"
-        find "\$sample_dir/" -type f -name "*.fasta" -o -name "*.fa" -o -name "*.fna" -o -name "*.fa.gz" 2>/dev/null || echo "No FASTA files found"
-        echo "Sample directory structure:"
-        ls -la "\$sample_dir/"
-        echo "Subdirectories in sample directory:"
-        find "\$sample_dir/" -type d -mindepth 1 -maxdepth 1 2>/dev/null | while read subdir; do
-            echo "Contents of \$subdir:"
-            ls -la "\$subdir/" 2>/dev/null || echo "  Cannot access \$subdir"
-        done
-        exit 1
-    fi
-    ln -s "\$assembly_file" phoenix_assembly
 
     echo "Successfully resolved files for sample ${sample_id}:"
-    echo "  Phoenix summary: \$summary_file"
-    echo "  GAMMA file: \$gamma_file"
-    echo "  AMRFinder report: \$amrfinder_file" 
-    echo "  Phoenix assembly: \$assembly_file"
+    echo "  GAMMA file: ${gamma_file}"
+    echo "  AMRFinder report: ${amrfinder_file}"
+    echo "  Phoenix assembly: ${assembly_file}"
     echo "  ONT genome: ${ont_genome}"
+    echo "  GFA file: ${has_gfa ? gfa_file : 'none (placeholder created)'}"
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
@@ -152,6 +81,8 @@ process RESOLVE_PHOENIX_FILES {
     touch gamma_ar_file
     touch amrfinder_report  
     touch phoenix_assembly
+    touch ont_genome.fasta
+    touch assembly.gfa
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
