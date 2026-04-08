@@ -252,6 +252,9 @@ def methodsDescriptionText(mqc_methods_yaml) {
 // Inspired by Phoenix's create_fastq_channels function
 //
 def create_grim_channels(LinkedHashMap row) {
+    println "DEBUG SAMPLESHEET: Parsing row for sample: ${row.sample}"
+    println "  - Available columns: ${row.keySet()}"
+    
     def meta = [:]
     meta.id = row.sample
     
@@ -278,7 +281,8 @@ def create_grim_channels(LinkedHashMap row) {
         }
         
         // Handle optional hybrid_assembly_gfa file (6th column)
-        def gfa_file = null
+        // Use empty list instead of null to avoid file staging collisions in Nextflow
+        def gfa_file = []
         if (row.containsKey('hybrid_assembly_gfa') && row.hybrid_assembly_gfa && row.hybrid_assembly_gfa.trim() != '') {
             // GFA file is optional and may be empty
             // Skip existence check for S3/GS URLs - Nextflow will handle staging
@@ -326,17 +330,11 @@ def create_grim_channels(LinkedHashMap row) {
         }
         
         // Handle optional GFA file (4th column)
-        def gfa_file = null
-        // if (row.containsKey('gfa') && row.gfa && row.gfa.trim() != '') {
-        //     // GFA file is optional and may be empty
-        //     if (!file(row.gfa).exists()) {
-        //         exit 1, "ERROR: Please check input samplesheet -> GFA file specified but does not exist!\n${row.gfa}"
-        //     }
-        //     gfa_file = file(row.gfa)
-        // }
+        // Use empty list instead of null to avoid file staging collisions in Nextflow
+        def gfa_file = []
         if (row.containsKey('gfa') && row.gfa && row.gfa.trim() != '') {
-        // GFA file is optional and may be empty
-        // Skip existence check for S3/GS URLs - Nextflow will handle staging
+            // GFA file is optional and may be empty
+            // Skip existence check for S3/GS URLs - Nextflow will handle staging
             if (!row.gfa.startsWith('s3://') && !row.gfa.startsWith('gs://') && !file(row.gfa).exists()) {
                 exit 1, "ERROR: Please check input samplesheet -> GFA file specified but does not exist!\n${row.gfa}"
             }
@@ -361,5 +359,6 @@ def create_grim_channels(LinkedHashMap row) {
         exit 1, "ERROR: Invalid samplesheet format for sample ${row.sample}. Expected either 5-column (individual files) or 3-column (phoenix_outdir) format."
     }
     
+    println "  - Returning array with ${array.size()} elements, format: ${array[0]}"
     return array
 }

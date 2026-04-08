@@ -20,8 +20,6 @@ process RESOLVE_PHOENIX_FILES {
 
     script:
     def sample_id = meta.id
-    // Check if gfa_file is empty or placeholder
-    def has_gfa = gfa_file.name != 'input.gfa' || gfa_file.size() > 0
     """
     echo "Processing sample: ${sample_id}"
     echo "Files staged by Nextflow:"
@@ -54,10 +52,13 @@ process RESOLVE_PHOENIX_FILES {
     ln -s "${assembly_file}" phoenix_assembly
     ln -s "${ont_genome}" ont_genome.fasta
 
-    # Handle GFA file - create placeholder if not provided or empty
-    if ${has_gfa}; then
-        echo "GFA file provided: ${gfa_file}"
-        ln -s "${gfa_file}" assembly.gfa
+    # Handle GFA file - check if input.gfa exists and has content
+    if [ -f "input.gfa" ] && [ -s "input.gfa" ]; then
+        echo "GFA file provided with content"
+        ln -s "input.gfa" assembly.gfa
+    elif [ -f "input.gfa" ]; then
+        echo "GFA file staged but empty - creating placeholder"
+        touch assembly.gfa
     else
         echo "No GFA file provided, creating empty placeholder"
         touch assembly.gfa
@@ -68,7 +69,12 @@ process RESOLVE_PHOENIX_FILES {
     echo "  AMRFinder report: ${amrfinder_file}"
     echo "  Phoenix assembly: ${assembly_file}"
     echo "  ONT genome: ${ont_genome}"
-    echo "  GFA file: ${has_gfa ? gfa_file : 'none (placeholder created)'}"
+    if [ -f "assembly.gfa" ] && [ -s "assembly.gfa" ]; then
+        GFA_SIZE=\$(stat -f%z input.gfa 2>/dev/null || stat -c%s input.gfa)
+        echo "  GFA file: input.gfa (\${GFA_SIZE} bytes)"
+    else
+        echo "  GFA file: none (placeholder created)"
+    fi
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

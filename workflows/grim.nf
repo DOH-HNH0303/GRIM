@@ -7,7 +7,8 @@ include { ILLUMINA_AMR_LOCATOR } from '../modules/local/illumina_amr_locator'
 include { MOBSUITE_TYPER } from '../modules/local/mobsuite_typer'
 include { PLATON } from '../modules/local/platon'
 include { BANDAGE } from '../modules/local/bandage'
-include { GFATOOLS_COUNT_EDGES } from '../modules/local/gfatools_count_edges'
+//include { GFATOOLS_COUNT_EDGES } from '../modules/local/gfatools_count_edges'
+include { COUNT_GFA_EDGES } from '../modules/local/count_gfa_edges'
 include { IDENTIFY_NON_MOBILIZABLE_CONTIGS } from '../modules/local/identify_non_mobilizable_contigs'
 include { EXTRACT_NON_MOBILIZABLE_CONTIGS } from '../modules/local/extract_non_mobilizable_contigs'
 include { GRIM_GENE_SUMMARY } from '../modules/local/grim_gene_summary'
@@ -58,6 +59,11 @@ workflow GRIM {
     //
     ch_phoenix_expanded = ch_input_formats.phoenix_outdir
         .map { meta, phoenix_dir, ont, gfa ->
+            println "DEBUG PHOENIX: Processing sample ${meta.id}"
+            println "  - phoenix_dir: ${phoenix_dir}"
+            println "  - ont: ${ont}"
+            println "  - gfa: ${gfa}"
+            
             def sample_id = meta.id
             def phoenix_summary = file("${phoenix_dir}/Phoenix_Summary.tsv")
             // Phoenix files are in subdirectories - use glob patterns to find them
@@ -65,17 +71,32 @@ workflow GRIM {
             def amr_pattern = "${phoenix_dir}/${sample_id}/*/${sample_id}_all_genes.tsv"
             def assembly_pattern = "${phoenix_dir}/${sample_id}/*/${sample_id}.scaffolds.fa.gz"
             
+            println "  - Looking for gamma: ${gamma_pattern}"
+            println "  - Looking for amr: ${amr_pattern}"
+            println "  - Looking for assembly: ${assembly_pattern}"
+            
             // Find the actual files
             def gamma_files = file(gamma_pattern)
             def amr_files = file(amr_pattern)
             def assembly_files = file(assembly_pattern)
+            
+            println "  - Found gamma files: ${gamma_files}"
+            println "  - Found amr files: ${amr_files}"
+            println "  - Found assembly files: ${assembly_files}"
             
             // Take first match for each
             def gamma_file = gamma_files instanceof List ? gamma_files[0] : gamma_files
             def amr_file = amr_files instanceof List ? amr_files[0] : amr_files
             def assembly_file = assembly_files instanceof List ? assembly_files[0] : assembly_files
             
-            return [meta, phoenix_summary, gamma_file, amr_file, assembly_file, file(ont), gfa ? file(gfa) : file('NO_FILE')]
+            println "  - Using gamma: ${gamma_file}"
+            println "  - Using amr: ${amr_file}"
+            println "  - Using assembly: ${assembly_file}"
+            
+            // Handle optional GFA file - create empty placeholder to avoid file name collisions
+            def gfa_file = gfa ? file(gfa) : []
+            
+            return [meta, phoenix_summary, gamma_file, amr_file, assembly_file, file(ont), gfa_file]
         }
 
     RESOLVE_PHOENIX_FILES (
@@ -120,11 +141,49 @@ workflow GRIM {
     //
     ch_gfa_files = ch_phoenix_files
         .map { meta, _gamma, _amrfinder, _phoenix_asm, _ont, gfa ->
+            // Debug: Print GFA file info
+            println "DEBUG: Sample ${meta.id} - GFA file: ${gfa}"
+            println "  - type: ${gfa?.getClass()?.getName()}"
+            println "  - exists: ${gfa?.exists()}"
+            println "  - size: ${gfa?.size()}"
+            println "  - name: ${gfa?.name}"
             tuple(meta, gfa)
         }
         .filter { meta, gfa -> 
-            // Filter out null and empty files (created by touch in RESOLVE_PHOENIX_FILES)
-            gfa != null && gfa.size() > 0
+            // Filter out:
+            // - null values
+            // - empty lists (from [] placeholder)
+            // - placeholder files (NO_FILE, assembly.gfa with size 0)
+            // - files that don't exist
+            def keep = true
+            if (gfa == null) {
+                println "DEBUG: Filtering out ${meta.id} - GFA is null"
+                keep = false
+            }
+            else if (gfa instanceof List && gfa.isEmpty()) {
+                println "DEBUG: Filtering out ${meta.id} - GFA is empty list []"
+                keep = false
+            }
+            else if (gfa instanceof List) {
+                println "DEBUG: Filtering out ${meta.id} - GFA is a list (unexpected): ${gfa}"
+                keep = false
+            }
+            else if (!gfa.exists()) {
+                println "DEBUG: Filtering out ${meta.id} - GFA doesn't exist: ${gfa}"
+                keep = false
+            }
+            else if (gfa.size() == 0) {
+                println "DEBUG: Filtering out ${meta.id} - GFA is empty (size 0): ${gfa}"
+                keep = false
+            }
+            else if (gfa.name == 'NO_FILE') {
+                println "DEBUG: Filtering out ${meta.id} - GFA is placeholder NO_FILE"
+                keep = false
+            }
+            else {
+                println "DEBUG: KEEPING ${meta.id} - GFA is valid: ${gfa} (size: ${gfa.size()})"
+            }
+            return keep
         }
     
     //
@@ -161,7 +220,7 @@ workflow GRIM {
     //
     // MODULE: Count number of edges in assembly with gfatools
     //
-       GFATOOLS_COUNT_EDGES(
+       COUNT_GFA_EDGES(
         ch_gfa_files  // Channel with [meta, gfa_file]
     )
 
@@ -169,10 +228,13 @@ workflow GRIM {
     // MODULE: Identify non-mobilizable contigs from MOB-typer and Platon results
     //
     ch_mobtyper_for_identification = MOBSUITE_TYPER.out.mobtyper_results
-    .join(PLATON.out.tsv, remainder: true)
-    .join(GFATOOLS_COUNT_EDGES.out.edge_counts, remainder: true)
-    
-
+        .join(PLATON.out.tsv, remainder: true)
+        .join(COUNT_GFA_EDGES.out.edge_counts, remainder: true)
+        .map { meta, mobtyper, platon, edge_counts ->
+            // Replace null edge_counts with empty file
+            def edge_file = edge_counts ?: file("NO_FILE")
+            tuple(meta, mobtyper, platon, edge_file)
+        }
 
     IDENTIFY_NON_MOBILIZABLE_CONTIGS (
         ch_mobtyper_for_identification
